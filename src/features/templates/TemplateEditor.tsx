@@ -40,22 +40,26 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
   const [content, setContent] = useState(template.content);
   const [saving, setSaving] = useState(false);
 
+  const buildUpdatedTemplate = (): Template => {
+    return {
+      ...template,
+      name,
+      description,
+      category,
+      tags: tags
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean),
+      version: versionMode === 'new' ? version : template.version,
+      content,
+      updatedAt: now(),
+    };
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      const updated: Template = {
-        ...template,
-        name,
-        description,
-        category,
-        tags: tags
-          .split(',')
-          .map((t) => t.trim())
-          .filter(Boolean),
-        version: versionMode === 'new' ? version : template.version,
-        content,
-        updatedAt: now(),
-      };
+      const updated = buildUpdatedTemplate();
       await storage.saveTemplate(collectionPath, updated);
       showToast('Template saved');
       onSave();
@@ -77,16 +81,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
         }]
       });
       if (filePath) {
-        const exportTemplate: Template = {
-          ...template,
-          name,
-          description,
-          category,
-          tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
-          version: versionMode === 'new' ? version : template.version,
-          content,
-          updatedAt: now(),
-        };
+        const exportTemplate = buildUpdatedTemplate();
         await storage.exportTemplateToFile(exportTemplate, filePath);
         showToast('Template exported successfully');
       }

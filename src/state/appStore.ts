@@ -2,17 +2,22 @@
  * Central application store (Zustand).
  *
  * Holds UI state, collections, templates, and the active GitHub token.
- * Persisted state (token, collections) is handled by the storage service;
+ * Persisted state (tokens, collections) is handled by the storage service;
  * this store only keeps the in-memory view.
  */
 
 import { create } from 'zustand';
 import type { Collection, Template, TemplateMetadata } from '../domain';
+import type { SavedToken } from '../services/storageService';
 
 interface AppState {
   /* ── Auth ── */
   githubToken: string | null;
   setGithubToken: (token: string | null) => void;
+  savedTokens: SavedToken[];
+  setSavedTokens: (tokens: SavedToken[]) => void;
+  activeTokenId: string | null;
+  setActiveTokenId: (id: string | null) => void;
 
   /* ── Collections ── */
   collections: Collection[];
@@ -38,6 +43,10 @@ export const useAppStore = create<AppState>((set) => ({
   /* Auth */
   githubToken: null,
   setGithubToken: (token) => set({ githubToken: token }),
+  savedTokens: [],
+  setSavedTokens: (savedTokens) => set({ savedTokens }),
+  activeTokenId: null,
+  setActiveTokenId: (activeTokenId) => set({ activeTokenId }),
 
   /* Collections */
   collections: [],

@@ -7,24 +7,34 @@ import {
   Eye,
   EyeOff,
   FolderOpen,
+  Key,
 } from 'lucide-react';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
-import { colors, spacing, font } from '../../ui/theme';
+import { openUrl } from '@tauri-apps/plugin-opener';
+import { colors, spacing, font, radius, transition } from '../../ui/theme';
 import { Button, Card, Input, TextArea, Select, SectionHeader } from '../../ui/components';
 import { useAppStore } from '../../state/appStore';
 import * as githubSvc from '../../services/githubService';
 import { cloneRepo } from '../../services/gitService';
+import { decryptToken } from '../../services/cryptoService';
+import * as storage from '../../services/storageService';
 
 type Step = 'form' | 'creating' | 'done';
+type TokenSource = 'saved' | 'manual';
 
 export const RepoCreator: React.FC = () => {
-  const { githubToken, setGithubToken, showToast } = useAppStore();
+  const { githubToken, setGithubToken, savedTokens, setSavedTokens, activeTokenId, setActiveTokenId, showToast } = useAppStore();
 
   const [step, setStep] = useState<Step>('form');
-  const [token, setToken] = useState(githubToken ?? '');
-  const [showToken, setShowToken] = useState(false);
+  const [tokenSource, setTokenSource] = useState<TokenSource>(savedTokens.length > 0 ? 'saved' : 'manual');
+  const [selectedTokenId, setSelectedTokenId] = useState(activeTokenId ?? '');
+  const [manualToken, setManualToken] = useState('');
+  const [showManualToken, setShowManualToken] = useState(false);
   const [tokenValid, setTokenValid] = useState<boolean | null>(null);
   const [username, setUsername] = useState('');
+
+  // The resolved plaintext token currently being used
+  const [resolvedToken, setResolvedToken] = useState(githubToken ?? '');
 
   const [repoName, setRepoName] = useState('');
   const [repoDesc, setRepoDesc] = useState('');
@@ -36,17 +46,56 @@ export const RepoCreator: React.FC = () => {
   const [createdUrl, setCreatedUrl] = useState('');
   const [clonedPath, setClonedPath] = useState('');
 
-  /* ─── Validate token ─── */
+  /* Load saved tokens on mount */
+  useEffect(() => {
+    (async () => {
+      const config = await storage.loadConfig();
+      if (config.savedTokens?.length) {
+        setSavedTokens(config.savedTokens);
+        setTokenSource('saved');
+      }
+    })();
+  }, []);
+
+  /* Auto-select the active token */
+  useEffect(() => {
+    if (activeTokenId && savedTokens.find((t) => t.id === activeTokenId)) {
+      setSelectedTokenId(activeTokenId);
+    } else if (savedTokens.length > 0) {
+      setSelectedTokenId(savedTokens[0].id);
+    }
+  }, [savedTokens, activeTokenId]);
+
+  /* ─── Validate / resolve token ─── */
   const validateToken = async () => {
-    if (!token.trim()) return;
+    let plain = '';
+
+    if (tokenSource === 'saved') {
+      const saved = savedTokens.find((t) => t.id === selectedTokenId);
+      if (!saved) { showToast('Select a token first'); return; }
+      try {
+        plain = await decryptToken(saved.encrypted);
+      } catch {
+        showToast('Failed to decrypt token');
+        return;
+      }
+    } else {
+      plain = manualToken.trim();
+      if (!plain) return;
+    }
+
     try {
-      const user = await githubSvc.validateToken(token.trim());
+      const user = await githubSvc.validateToken(plain);
       setUsername(user);
       setTokenValid(true);
-      setGithubToken(token.trim());
+      setResolvedToken(plain);
+      setGithubToken(plain);
 
-      // Also load gitignore templates
-      const tpls = await githubSvc.listGitignoreTemplates(token.trim());
+      if (tokenSource === 'saved') {
+        setActiveTokenId(selectedTokenId);
+      }
+
+      const tpls = await githubSvc.listGitignoreTemplates(plain);
       setGitignoreTemplates(tpls);
     } catch {
       setTokenValid(false);
@@ -56,8 +105,17 @@ export const RepoCreator: React.FC = () => {
 
   useEffect(() => {
     if (githubToken) {
-      setToken(githubToken);
-      validateToken();
+      setResolvedToken(githubToken);
+      // Auto-validate on mount if we already have a token
+      (async () => {
+        try {
+          const user = await githubSvc.validateToken(githubToken);
+          setUsername(user);
+          setTokenValid(true);
+          const tpls = await githubSvc.listGitignoreTemplates(githubToken);
+          setGitignoreTemplates(tpls);
+        } catch { /* ignore */ }
+      })();
     }
   }, []);
 
@@ -79,7 +137,7 @@ export const RepoCreator: React.FC = () => {
     }
     setStep('creating');
     try {
-      const repo = await githubSvc.createRepo(token, {
+      const repo = await githubSvc.createRepo(resolvedToken, {
         name: repoName.trim(),
         description: repoDesc.trim(),
         isPrivate,
@@ -92,7 +150,7 @@ export const RepoCreator: React.FC = () => {
       // Clone locally if a path was chosen
       if (localPath) {
         const targetDir = `${localPath}\\${repoName.trim()}`;
-        await cloneRepo(token, repo.fullName, targetDir);
+        await cloneRepo(resolvedToken, repo.fullName, targetDir);
         setClonedPath(targetDir);
         showToast(`Repository "${repo.fullName}" created & cloned!`);
       } else {
@@ -149,7 +207,7 @@ export const RepoCreator: React.FC = () => {
           <Button
             variant="secondary"
             icon={<ExternalLink size={16} />}
-            onClick={() => window.open(createdUrl, '_blank')}
+            onClick={() => openUrl(createdUrl)}
           >
             Open on GitHub
           </Button>
@@ -200,34 +258,84 @@ export const RepoCreator: React.FC = () => {
             fontWeight: font.weight.semibold,
             color: colors.text.primary,
             marginBottom: spacing.lg,
+            display: 'flex',
+            alignItems: 'center',
+            gap: spacing.sm,
           }}
         >
+          <Key size={18} />
           GitHub Authentication
         </h3>
-        <div style={{ display: 'flex', gap: spacing.md, alignItems: 'flex-end' }}>
-          <div style={{ flex: 1, position: 'relative' }}>
-            <Input
-              label="Personal Access Token"
-              type={showToken ? 'text' : 'password'}
-              value={token}
-              onChange={(e) => {
-                setToken(e.target.value);
-                setTokenValid(null);
-              }}
-              placeholder="ghp_…"
-            />
+
+        {/* Source toggle */}
+        {savedTokens.length > 0 && (
+          <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.lg }}>
+            {(['saved', 'manual'] as const).map((src) => (
+              <button
+                key={src}
+                onClick={() => { setTokenSource(src); setTokenValid(null); }}
+                style={{
+                  padding: `${spacing.xs} ${spacing.lg}`,
+                  borderRadius: radius.md,
+                  fontSize: font.size.sm,
+                  fontWeight: font.weight.medium,
+                  border: `1px solid ${tokenSource === src ? colors.accent.blue : colors.border.default}`,
+                  background: tokenSource === src ? `${colors.accent.blue}22` : 'transparent',
+                  color: tokenSource === src ? colors.accent.blue : colors.text.secondary,
+                  cursor: 'pointer',
+                  transition: `all ${transition.fast}`,
+                }}
+              >
+                {src === 'saved' ? 'Saved Token' : 'Paste Token'}
+              </button>
+            ))}
           </div>
-          <button
-            onClick={() => setShowToken(!showToken)}
-            style={{ color: colors.text.muted, marginBottom: 4 }}
-            title={showToken ? 'Hide' : 'Show'}
-          >
-            {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
-          <Button variant="secondary" size="sm" onClick={validateToken}>
-            Verify
-          </Button>
-        </div>
+        )}
+
+        {/* Saved token picker */}
+        {tokenSource === 'saved' && savedTokens.length > 0 && (
+          <div style={{ display: 'flex', gap: spacing.md, alignItems: 'flex-end' }}>
+            <div style={{ flex: 1 }}>
+              <Select
+                label="Choose a saved token"
+                options={savedTokens.map((t) => ({ value: t.id, label: t.label }))}
+                value={selectedTokenId}
+                onChange={(e) => { setSelectedTokenId(e.target.value); setTokenValid(null); }}
+              />
+            </div>
+            <Button variant="secondary" size="sm" onClick={validateToken}>
+              Verify
+            </Button>
+          </div>
+        )}
+
+        {/* Manual token input */}
+        {(tokenSource === 'manual' || savedTokens.length === 0) && (
+          <div style={{ display: 'flex', gap: spacing.md, alignItems: 'flex-end' }}>
+            <div style={{ flex: 1 }}>
+              <Input
+                label="Personal Access Token"
+                type={showManualToken ? 'text' : 'password'}
+                value={manualToken}
+                onChange={(e) => {
+                  setManualToken(e.target.value);
+                  setTokenValid(null);
+                }}
+                placeholder="ghp_…"
+              />
+            </div>
+            <button
+              onClick={() => setShowManualToken(!showManualToken)}
+              style={{ color: colors.text.muted, marginBottom: 4, background: 'none', border: 'none', cursor: 'pointer' }}
+              title={showManualToken ? 'Hide' : 'Show'}
+            >
+              {showManualToken ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+            <Button variant="secondary" size="sm" onClick={validateToken}>
+              Verify
+            </Button>
+          </div>
+        )}
         {tokenValid === true && (
           <p style={{ fontSize: font.size.sm, color: colors.accent.green, marginTop: spacing.sm }}>
             ✓ Authenticated as <strong>{username}</strong>

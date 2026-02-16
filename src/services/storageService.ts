@@ -31,10 +31,19 @@ export async function ensureAppDirs(): Promise<void> {
   if (!(await exists(colDir))) await mkdir(colDir, { recursive: true });
 }
 
-/* ────────── Config (token, settings) ────────── */
+/* ────────── Config (tokens, settings) ────────── */
 
-interface AppConfig {
+export interface SavedToken {
+  id: string;           // unique identifier
+  label: string;        // user-friendly name, e.g. "Work" or "Personal"
+  encrypted: string;    // AES-256-GCM encrypted blob (base64)
+  createdAt: string;    // ISO timestamp
+}
+
+export interface AppConfig {
+  /** @deprecated kept for migration – use savedTokens instead */
   githubToken?: string | null;
+  savedTokens?: SavedToken[];
   [key: string]: unknown;
 }
 

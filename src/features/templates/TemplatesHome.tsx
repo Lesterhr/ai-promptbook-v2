@@ -469,7 +469,7 @@ export const TemplatesHome: React.FC = () => {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.md }}>
                     <span
-                      onClick={(e) => { e.stopPropagation(); navigate('/guidelines'); }}
+                      onClick={(e) => { e.stopPropagation(); navigate('/wiki'); }}
                       style={{ fontSize: font.size.xs, color: colors.accent.blue, cursor: 'pointer' }}
                     >
                       View Guide →

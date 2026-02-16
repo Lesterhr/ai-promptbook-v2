@@ -25,6 +25,8 @@ import { useNavigate } from 'react-router-dom';
 
 type Section = 'overview' | 'discipline' | 'best-practices' | 'prompt-modes';
 
+const anthracite = '#2d3436';
+
 export const GuidelinesPage: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useAppStore();
@@ -149,17 +151,17 @@ export const GuidelinesPage: React.FC = () => {
         {/* ─── Overview ─── */}
         {activeSection === 'overview' && !activeDiscipline && (
           <div>
-            <h1 style={{ fontSize: font.size['3xl'], fontWeight: font.weight.bold, color: colors.text.primary, marginBottom: spacing.sm }}>
-              Agent Instruction Guidelines
+            <h1 style={{ fontSize: font.size['3xl'], fontWeight: font.weight.bold, color: anthracite, marginBottom: spacing.sm }}>
+              Wiki
             </h1>
-            <p style={{ fontSize: font.size.lg, color: colors.text.secondary, marginBottom: spacing['2xl'], lineHeight: 1.6 }}>
+            <p style={{ fontSize: font.size.lg, color: anthracite, marginBottom: spacing['2xl'], lineHeight: 1.6 }}>
               A practical reference for creating effective AI agent instruction files.
               Each discipline below covers a specific file format and target tool.
               Choose the one that matches your development setup, or use AGENTS.md as a universal starting point.
             </p>
 
             {/* Discipline cards grid */}
-            <h2 style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: colors.text.primary, marginBottom: spacing.lg }}>
+            <h2 style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: anthracite, marginBottom: spacing.lg }}>
               Choose a Discipline
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.lg, marginBottom: spacing['2xl'] }}>
@@ -282,7 +284,7 @@ export const GuidelinesPage: React.FC = () => {
                 {activeDiscipline.id === 'system-prompt' ? <Sparkles size={24} /> : <FileText size={24} />}
               </div>
               <div>
-                <h1 style={{ fontSize: font.size['2xl'], fontWeight: font.weight.bold, color: colors.text.primary, margin: 0 }}>
+                <h1 style={{ fontSize: font.size['2xl'], fontWeight: font.weight.bold, color: anthracite, margin: 0 }}>
                   {activeDiscipline.title}
                 </h1>
                 <Badge color={activeDiscipline.color}>{activeDiscipline.toolName}</Badge>
@@ -384,17 +386,17 @@ export const GuidelinesPage: React.FC = () => {
         {/* ─── Best Practices ─── */}
         {activeSection === 'best-practices' && !activeDiscipline && (
           <div>
-            <h1 style={{ fontSize: font.size['3xl'], fontWeight: font.weight.bold, color: colors.text.primary, marginBottom: spacing.sm }}>
+            <h1 style={{ fontSize: font.size['3xl'], fontWeight: font.weight.bold, color: anthracite, marginBottom: spacing.sm }}>
               Best Practices
             </h1>
-            <p style={{ fontSize: font.size.lg, color: colors.text.secondary, marginBottom: spacing['2xl'], lineHeight: 1.6 }}>
+            <p style={{ fontSize: font.size.lg, color: anthracite, marginBottom: spacing['2xl'], lineHeight: 1.6 }}>
               Cross-cutting principles for writing effective AI agent instructions, derived from analysis of
               2,500+ repositories and documentation from Microsoft, Anthropic, and OpenAI.
             </p>
 
             {bestPractices.map((bp) => (
               <div key={bp.id} style={{ marginBottom: spacing['2xl'] }}>
-                <h2 style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: colors.text.primary, marginBottom: spacing.sm }}>
+                <h2 style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: anthracite, marginBottom: spacing.sm }}>
                   {bp.title}
                 </h2>
                 <p style={{ ...proseStyle, marginBottom: spacing.md }}>{bp.description}</p>
@@ -419,10 +421,10 @@ export const GuidelinesPage: React.FC = () => {
         {/* ─── Prompt Modes ─── */}
         {activeSection === 'prompt-modes' && !activeDiscipline && (
           <div>
-            <h1 style={{ fontSize: font.size['3xl'], fontWeight: font.weight.bold, color: colors.text.primary, marginBottom: spacing.sm }}>
+            <h1 style={{ fontSize: font.size['3xl'], fontWeight: font.weight.bold, color: anthracite, marginBottom: spacing.sm }}>
               Prompt Mode Triggers
             </h1>
-            <p style={{ fontSize: font.size.lg, color: colors.text.secondary, marginBottom: spacing.md, lineHeight: 1.6 }}>
+            <p style={{ fontSize: font.size.lg, color: anthracite, marginBottom: spacing.md, lineHeight: 1.6 }}>
               Small wording changes in your prompts activate dramatically different behavioral modes in the model.
               Understanding these triggers lets you steer AI output precisely.
             </p>
@@ -516,13 +518,13 @@ export const GuidelinesPage: React.FC = () => {
 
 const proseStyle: React.CSSProperties = {
   fontSize: font.size.md,
-  color: colors.text.secondary,
+  color: anthracite,
   lineHeight: 1.7,
 };
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <div style={{ marginBottom: spacing['2xl'] }}>
-    <h2 style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: colors.text.primary, marginBottom: spacing.md }}>
+    <h2 style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: anthracite, marginBottom: spacing.md }}>
       {title}
     </h2>
     {children}

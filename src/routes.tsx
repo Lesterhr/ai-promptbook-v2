@@ -13,7 +13,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <StartScreen /> },
       { path: 'templates', element: <TemplatesHome /> },
-      { path: 'guidelines', element: <GuidelinesPage /> },
+      { path: 'wiki', element: <GuidelinesPage /> },
       { path: 'repo-creator', element: <RepoCreator /> },
       { path: 'settings', element: <SettingsPage /> },
     ],

@@ -1,10 +1,13 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ArrowLeft, Pencil, Clock, Hash, Tag } from 'lucide-react';
+import { ArrowLeft, Pencil, Clock, Hash, Tag, Download } from 'lucide-react';
+import { save as saveDialog } from '@tauri-apps/plugin-dialog';
 import { colors, spacing, font, radius } from '../../ui/theme';
 import { Button, Badge } from '../../ui/components';
 import type { Template } from '../../domain';
+import * as storage from '../../services/storageService';
+import { useAppStore } from '../../state/appStore';
 
 interface TemplatePreviewProps {
   template: Template;
@@ -13,6 +16,27 @@ interface TemplatePreviewProps {
 }
 
 export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onEdit, onBack }) => {
+  const { showToast } = useAppStore();
+
+  const handleExport = async () => {
+    try {
+      const filePath = await saveDialog({
+        title: 'Export Template',
+        defaultPath: template.filename,
+        filters: [{
+          name: 'Markdown',
+          extensions: ['md']
+        }]
+      });
+      if (filePath) {
+        await storage.exportTemplateToFile(template, filePath);
+        showToast('Template exported successfully');
+      }
+    } catch (err) {
+      showToast(`Export failed: ${err}`);
+    }
+  };
+
   return (
     <div style={{ maxWidth: 960, margin: '0 auto' }}>
       {/* Top bar */}
@@ -27,9 +51,14 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onEd
         <Button variant="ghost" onClick={onBack} icon={<ArrowLeft size={16} />}>
           Back
         </Button>
-        <Button onClick={onEdit} icon={<Pencil size={16} />}>
-          Edit
-        </Button>
+        <div style={{ display: 'flex', gap: spacing.sm }}>
+          <Button variant="secondary" onClick={handleExport} icon={<Download size={16} />}>
+            Export
+          </Button>
+          <Button onClick={onEdit} icon={<Pencil size={16} />}>
+            Edit
+          </Button>
+        </div>
       </div>
 
       {/* Title */}

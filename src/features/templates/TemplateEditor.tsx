@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Save, X, Tag } from 'lucide-react';
+import { Save, X, Tag, Download } from 'lucide-react';
+import { save as saveDialog } from '@tauri-apps/plugin-dialog';
 import { colors, spacing, font, radius } from '../../ui/theme';
 import { Button, Input, Select } from '../../ui/components';
 import type { Template, TemplateCategory } from '../../domain';
@@ -35,6 +36,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
   const [category, setCategory] = useState<TemplateCategory>(template.category);
   const [tags, setTags] = useState(template.tags.join(', '));
   const [version, setVersion] = useState(template.version);
+  const [versionMode, setVersionMode] = useState<'keep' | 'new'>('keep');
   const [content, setContent] = useState(template.content);
   const [saving, setSaving] = useState(false);
 
@@ -50,7 +52,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
           .split(',')
           .map((t) => t.trim())
           .filter(Boolean),
-        version,
+        version: versionMode === 'new' ? version : template.version,
         content,
         updatedAt: now(),
       };
@@ -61,6 +63,35 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
       showToast(`Save failed: ${err}`);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const filePath = await saveDialog({
+        title: 'Export Template',
+        defaultPath: template.filename,
+        filters: [{
+          name: 'Markdown',
+          extensions: ['md']
+        }]
+      });
+      if (filePath) {
+        const exportTemplate: Template = {
+          ...template,
+          name,
+          description,
+          category,
+          tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+          version: versionMode === 'new' ? version : template.version,
+          content,
+          updatedAt: now(),
+        };
+        await storage.exportTemplateToFile(exportTemplate, filePath);
+        showToast('Template exported successfully');
+      }
+    } catch (err) {
+      showToast(`Export failed: ${err}`);
     }
   };
 
@@ -82,6 +113,9 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
           <Button variant="ghost" onClick={onCancel} icon={<X size={16} />}>
             Cancel
           </Button>
+          <Button variant="secondary" onClick={handleExport} icon={<Download size={16} />}>
+            Export
+          </Button>
           <Button onClick={handleSave} disabled={saving} icon={<Save size={16} />}>
             {saving ? 'Saving…' : 'Save'}
           </Button>
@@ -100,7 +134,24 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
         <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} />
         <Input label="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
         <Select label="Category" options={categoryOptions} value={category} onChange={(e) => setCategory(e.target.value as TemplateCategory)} />
-        <Input label="Version" value={version} onChange={(e) => setVersion(e.target.value)} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+          <Select 
+            label="Version" 
+            options={[
+              { value: 'keep', label: `Keep current (v${template.version})` },
+              { value: 'new', label: 'Create new version' },
+            ]} 
+            value={versionMode} 
+            onChange={(e) => setVersionMode(e.target.value as 'keep' | 'new')} 
+          />
+          {versionMode === 'new' && (
+            <Input 
+              value={version} 
+              onChange={(e) => setVersion(e.target.value)} 
+              placeholder="e.g., 2.0.0"
+            />
+          )}
+        </div>
         <div style={{ gridColumn: '1 / -1' }}>
           <Input
             label="Tags (comma-separated)"

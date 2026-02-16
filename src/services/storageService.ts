@@ -221,3 +221,17 @@ export async function importTemplateFromFile(
   const category = inferCategory(sourceFileName);
   return createTemplate(collectionPath, name, category, content);
 }
+
+/* ────────── Export helpers ────────── */
+
+/**
+ * Export a template to a file. Returns the exported file path.
+ * @param template The template to export
+ * @param destinationPath The destination file path
+ */
+export async function exportTemplateToFile(
+  template: Template,
+  destinationPath: string,
+): Promise<void> {
+  await writeTextFile(destinationPath, template.content);
+}

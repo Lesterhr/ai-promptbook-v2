@@ -11,6 +11,8 @@ import {
   LayoutGrid,
   List,
   Sparkles,
+  ArrowLeft,
+  MoreVertical,
 } from 'lucide-react';
 import { colors, spacing, font, radius, transition } from '../../ui/theme';
 import { Button, Card, Badge, Input, SectionHeader, EmptyState, Select, ConfirmDialog } from '../../ui/components';
@@ -53,6 +55,7 @@ export const TemplatesHome: React.FC = () => {
   const [syncing, setSyncing] = useState(false);
   const [listMode, setListMode] = useState<ListMode>('hub');
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [moveTarget, setMoveTarget] = useState<{ templateId: string; templateName: string } | null>(null);
 
   const navigate = useNavigate();
   const activeCollection = collections.find((c) => c.id === activeCollectionId) ?? null;
@@ -133,6 +136,7 @@ export const TemplatesHome: React.FC = () => {
     try {
       await storage.deleteTemplate(activeCollection.path, deleteConfirm.id);
       await loadTemplates();
+      await loadCollections();
       if (activeTemplate?.id === deleteConfirm.id) {
         setActiveTemplate(null);
         setViewMode('list');
@@ -142,6 +146,22 @@ export const TemplatesHome: React.FC = () => {
       showToast(`Error: ${err}`);
     } finally {
       setDeleteConfirm(null);
+    }
+  };
+
+  const handleMoveTemplate = async (targetCollectionId: string) => {
+    if (!activeCollection || !moveTarget) return;
+    const targetCol = collections.find((c) => c.id === targetCollectionId);
+    if (!targetCol) return;
+    try {
+      await storage.moveTemplate(activeCollection.path, targetCol.path, moveTarget.templateId);
+      await loadTemplates();
+      await loadCollections();
+      showToast(`Moved "${moveTarget.templateName}" to "${targetCol.name}"`);
+    } catch (err) {
+      showToast(`Move failed: ${err}`);
+    } finally {
+      setMoveTarget(null);
     }
   };
 
@@ -333,6 +353,16 @@ export const TemplatesHome: React.FC = () => {
 
       {/* Search & filter bar */}
       <div style={{ display: 'flex', gap: spacing.md, marginBottom: spacing.lg, alignItems: 'flex-end' }}>
+        {(categoryFilter !== 'all' || listMode === 'flat') && (
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<ArrowLeft size={16} />}
+            onClick={() => { setCategoryFilter('all'); setListMode('hub'); setSearch(''); }}
+          >
+            Back
+          </Button>
+        )}
         <div style={{ flex: 1 }}>
           <Input
             placeholder="Search templates…"
@@ -461,7 +491,7 @@ export const TemplatesHome: React.FC = () => {
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
                 {templates.map((tpl) => (
-                  <TemplateRow key={tpl.id} tpl={tpl} onOpen={handleOpenTemplate} onDelete={handleDeleteTemplate} />
+                  <TemplateRow key={tpl.id} tpl={tpl} onOpen={handleOpenTemplate} onDelete={handleDeleteTemplate} onMove={(id, name) => setMoveTarget({ templateId: id, templateName: name })} />
                 ))}
               </div>
             </>
@@ -486,7 +516,7 @@ export const TemplatesHome: React.FC = () => {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
           {filtered.map((tpl) => (
-            <TemplateRow key={tpl.id} tpl={tpl} onOpen={handleOpenTemplate} onDelete={handleDeleteTemplate} />
+            <TemplateRow key={tpl.id} tpl={tpl} onOpen={handleOpenTemplate} onDelete={handleDeleteTemplate} onMove={(id, name) => setMoveTarget({ templateId: id, templateName: name })} />
           ))}
         </div>
       )}
@@ -522,6 +552,80 @@ export const TemplatesHome: React.FC = () => {
         onConfirm={confirmDeleteTemplate}
         onCancel={() => setDeleteConfirm(null)}
       />
+
+      {/* Move to collection dialog */}
+      {moveTarget && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 2000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0, 0, 0, 0.7)',
+            backdropFilter: 'blur(4px)',
+          }}
+          onClick={() => setMoveTarget(null)}
+        >
+          <div
+            style={{
+              background: colors.bg.surface,
+              border: `1px solid ${colors.border.default}`,
+              borderRadius: radius.lg,
+              padding: spacing.xl,
+              maxWidth: '400px',
+              width: '90%',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ fontSize: font.size.xl, fontWeight: font.weight.bold, color: colors.text.primary, margin: 0, marginBottom: spacing.sm }}>
+              Move Template
+            </h3>
+            <p style={{ fontSize: font.size.md, color: colors.text.secondary, marginBottom: spacing.lg }}>
+              Move &ldquo;{moveTarget.templateName}&rdquo; to:
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+              {collections
+                .filter((c) => c.id !== activeCollectionId)
+                .map((col) => (
+                  <button
+                    key={col.id}
+                    onClick={() => handleMoveTemplate(col.id)}
+                    style={{
+                      padding: `${spacing.sm} ${spacing.lg}`,
+                      background: 'rgba(35, 39, 56, 0.85)',
+                      border: `1px solid ${colors.border.default}`,
+                      borderRadius: radius.md,
+                      color: colors.text.primary,
+                      fontSize: font.size.md,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      transition: `all ${transition.fast}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: spacing.md,
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.accent.blue; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = colors.border.default; }}
+                  >
+                    <FolderOpen size={16} color={colors.accent.blue} />
+                    {col.name}
+                  </button>
+                ))}
+              {collections.filter((c) => c.id !== activeCollectionId).length === 0 && (
+                <p style={{ fontSize: font.size.sm, color: colors.text.muted, textAlign: 'center', padding: spacing.lg }}>
+                  No other collections available. Create a new collection first.
+                </p>
+              )}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: spacing.lg }}>
+              <Button variant="secondary" onClick={() => setMoveTarget(null)}>Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -532,77 +636,153 @@ const TemplateRow: React.FC<{
   tpl: TemplateMetadata;
   onOpen: (tpl: TemplateMetadata) => void;
   onDelete: (id: string) => void;
-}> = ({ tpl, onOpen, onDelete }) => (
-  <Card
-    interactive
-    onClick={() => onOpen(tpl)}
-    style={{ padding: `${spacing.md} ${spacing.xl}` }}
-  >
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flex: 1, minWidth: 0 }}>
-        <FileText size={18} color={colors.accent.blue} />
-        <div style={{ minWidth: 0 }}>
-          <div
-            style={{
-              fontWeight: font.weight.medium,
-              color: colors.text.primary,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {tpl.name}
-          </div>
-          {tpl.description && (
+  onMove: (id: string, name: string) => void;
+}> = ({ tpl, onOpen, onDelete, onMove }) => {
+  const [menuOpen, setMenuOpen] = React.useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!menuOpen) return;
+    const close = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    // Use capture phase so we get the event before anything else
+    document.addEventListener('mousedown', close, true);
+    return () => document.removeEventListener('mousedown', close, true);
+  }, [menuOpen]);
+
+  return (
+    <Card
+      interactive
+      onClick={() => onOpen(tpl)}
+      style={{ padding: `${spacing.md} ${spacing.xl}`, position: 'relative', zIndex: menuOpen ? 100 : 'auto', overflow: menuOpen ? 'visible' : undefined }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flex: 1, minWidth: 0 }}>
+          <FileText size={18} color={colors.accent.blue} />
+          <div style={{ minWidth: 0 }}>
             <div
               style={{
-                fontSize: font.size.sm,
-                color: colors.text.muted,
+                fontWeight: font.weight.medium,
+                color: colors.text.primary,
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
               }}
             >
-              {tpl.description}
+              {tpl.name}
             </div>
-          )}
+            {tpl.description && (
+              <div
+                style={{
+                  fontSize: font.size.sm,
+                  color: colors.text.muted,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {tpl.description}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flexShrink: 0 }}>
+          <Badge>{tpl.category}</Badge>
+          <span style={{
+            fontSize: font.size.xs,
+            color: colors.text.muted,
+            background: 'rgba(35, 39, 56, 0.85)',
+            padding: `1px ${spacing.sm}`,
+            borderRadius: radius.full,
+          }}>v{tpl.version}</span>
+          <span style={{
+            fontSize: font.size.xs,
+            color: colors.text.muted,
+            background: 'rgba(35, 39, 56, 0.85)',
+            padding: `1px ${spacing.sm}`,
+            borderRadius: radius.full,
+          }}>
+            {tpl.useCount} uses
+          </span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(tpl.id);
+            }}
+            style={{
+              color: colors.text.muted,
+              padding: spacing.xs,
+              borderRadius: radius.sm,
+              display: 'flex',
+            }}
+            title="Delete template"
+          >
+            <Trash2 size={14} />
+          </button>
+          <div ref={menuRef} style={{ position: 'relative', zIndex: menuOpen ? 1001 : 'auto' }}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen(!menuOpen);
+              }}
+              style={{
+                color: colors.text.muted,
+                padding: spacing.xs,
+                borderRadius: radius.sm,
+                display: 'flex',
+              }}
+              title="More actions"
+            >
+              <MoreVertical size={14} />
+            </button>
+            {menuOpen && (
+              <div
+                style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '100%',
+                  marginTop: spacing.xs,
+                  background: colors.bg.surface,
+                  border: `1px solid ${colors.border.default}`,
+                    borderRadius: radius.md,
+                    boxShadow: '0 8px 24px rgba(0,0,0,.5)',
+                    zIndex: 1001,
+                    minWidth: 200,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuOpen(false);
+                      onMove(tpl.id, tpl.name);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: spacing.sm,
+                      width: '100%',
+                      padding: `${spacing.sm} ${spacing.lg}`,
+                      fontSize: font.size.sm,
+                      color: colors.text.secondary,
+                      textAlign: 'left',
+                      transition: `background ${transition.fast}`,
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = colors.bg.hover; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <FolderOpen size={14} />
+                    Move to Collection…
+                  </button>
+                </div>
+            )}
+          </div>
         </div>
       </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flexShrink: 0 }}>
-        <Badge>{tpl.category}</Badge>
-        <span style={{
-          fontSize: font.size.xs,
-          color: colors.text.muted,
-          background: 'rgba(35, 39, 56, 0.85)',
-          padding: `1px ${spacing.sm}`,
-          borderRadius: radius.full,
-        }}>v{tpl.version}</span>
-        <span style={{
-          fontSize: font.size.xs,
-          color: colors.text.muted,
-          background: 'rgba(35, 39, 56, 0.85)',
-          padding: `1px ${spacing.sm}`,
-          borderRadius: radius.full,
-        }}>
-          {tpl.useCount} uses
-        </span>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(tpl.id);
-          }}
-          style={{
-            color: colors.text.muted,
-            padding: spacing.xs,
-            borderRadius: radius.sm,
-            display: 'flex',
-          }}
-          title="Delete template"
-        >
-          <Trash2 size={14} />
-        </button>
-      </div>
-    </div>
-  </Card>
-);
+    </Card>
+  );
+};

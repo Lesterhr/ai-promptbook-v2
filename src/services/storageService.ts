@@ -417,6 +417,34 @@ export async function deleteTemplate(collectionPath: string, templateId: string)
   await saveIndex(collectionPath, remaining);
 }
 
+export async function moveTemplate(
+  sourceCollectionPath: string,
+  targetCollectionPath: string,
+  templateId: string,
+): Promise<void> {
+  const srcTemplates = await listTemplates(sourceCollectionPath);
+  const meta = srcTemplates.find((t) => t.id === templateId);
+  if (!meta) throw new Error('Template not found in source collection');
+
+  // Read the template content
+  const srcFilePath = await join(sourceCollectionPath, meta.filename);
+  const content = await readTextFile(srcFilePath);
+
+  // Save to target collection
+  const destFilePath = await join(targetCollectionPath, meta.filename);
+  await writeTextFile(destFilePath, content);
+
+  // Add to target index
+  const tgtTemplates = await listTemplates(targetCollectionPath);
+  tgtTemplates.push({ ...meta, updatedAt: now() });
+  await saveIndex(targetCollectionPath, tgtTemplates);
+
+  // Remove from source
+  if (await exists(srcFilePath)) await remove(srcFilePath);
+  const remaining = srcTemplates.filter((t) => t.id !== templateId);
+  await saveIndex(sourceCollectionPath, remaining);
+}
+
 export async function renameTemplateFile(
   collectionPath: string,
   oldFilename: string,

@@ -55,6 +55,7 @@ export async function loadConfig(): Promise<AppConfig> {
 }
 
 export async function saveConfig(config: AppConfig): Promise<void> {
+  await ensureAppDirs();
   const configPath = await getConfigPath();
   await writeTextFile(configPath, JSON.stringify(config, null, 2));
 }

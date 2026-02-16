@@ -9,6 +9,7 @@
     {
       "identifier": "fs:default",
       "allow": [
+        { "path": "$HOME/.ai-promptbook" },
         { "path": "$HOME/.ai-promptbook/**" },
         { "path": "$RESOURCE/**" }
       ]

@@ -82,6 +82,7 @@ interface CardProps {
 export const Card: React.FC<CardProps> = ({ children, style, onClick, interactive }) => (
   <div
     onClick={onClick}
+    // eslint-disable-next-line jsx-a11y/role-has-required-aria-props
     role={onClick ? 'button' : undefined}
     tabIndex={onClick ? 0 : undefined}
     style={{

@@ -140,11 +140,17 @@ export async function saveTemplate(
   collectionPath: string,
   template: Template,
 ): Promise<TemplateMetadata> {
+  // Archive old version if version changed
+  const templates = await listTemplates(collectionPath);
+  const existing = templates.find((t) => t.id === template.id);
+  if (existing && existing.version !== template.version) {
+    await archiveTemplateVersion(collectionPath, existing);
+  }
+
   const filePath = await join(collectionPath, template.filename);
   await writeTextFile(filePath, template.content);
 
   // Update index
-  const templates = await listTemplates(collectionPath);
   const idx = templates.findIndex((t) => t.id === template.id);
   const meta: TemplateMetadata = { ...template, updatedAt: now() };
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -156,6 +162,83 @@ export async function saveTemplate(
   }
   await saveIndex(collectionPath, templates);
   return metaOnly;
+}
+
+/* ────────── Version History ────────── */
+
+export interface ArchivedVersion {
+  version: string;
+  archivedAt: string;
+  filename: string;
+  meta: TemplateMetadata;
+}
+
+/** Get the history directory for a specific template */
+async function historyDir(collectionPath: string, templateId: string): Promise<string> {
+  return join(collectionPath, '_history', templateId);
+}
+
+/** Archive the current version of a template before saving a new version */
+async function archiveTemplateVersion(
+  collectionPath: string,
+  existingMeta: TemplateMetadata,
+): Promise<void> {
+  const dir = await historyDir(collectionPath, existingMeta.id);
+  if (!(await exists(dir))) await mkdir(dir, { recursive: true });
+
+  // Read old content
+  const oldFilePath = await join(collectionPath, existingMeta.filename);
+  let oldContent = '';
+  if (await exists(oldFilePath)) {
+    oldContent = await readTextFile(oldFilePath);
+  }
+
+  const ts = now();
+  const safeVersion = existingMeta.version.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const archiveFilename = `v${safeVersion}.md`;
+
+  // Save archived content
+  const archivePath = await join(dir, archiveFilename);
+  await writeTextFile(archivePath, oldContent);
+
+  // Update history index
+  const indexPath = await join(dir, '_history.json');
+  let history: ArchivedVersion[] = [];
+  if (await exists(indexPath)) {
+    history = JSON.parse(await readTextFile(indexPath)) as ArchivedVersion[];
+  }
+  history.push({
+    version: existingMeta.version,
+    archivedAt: ts,
+    filename: archiveFilename,
+    meta: existingMeta,
+  });
+  await writeTextFile(indexPath, JSON.stringify(history, null, 2));
+}
+
+/** List all archived versions for a template */
+export async function listTemplateHistory(
+  collectionPath: string,
+  templateId: string,
+): Promise<ArchivedVersion[]> {
+  const dir = await historyDir(collectionPath, templateId);
+  const indexPath = await join(dir, '_history.json');
+  if (!(await exists(indexPath))) return [];
+  const raw = await readTextFile(indexPath);
+  return (JSON.parse(raw) as ArchivedVersion[]).sort(
+    (a, b) => b.archivedAt.localeCompare(a.archivedAt),
+  );
+}
+
+/** Read the content of an archived template version */
+export async function readArchivedVersion(
+  collectionPath: string,
+  templateId: string,
+  archiveFilename: string,
+): Promise<string> {
+  const dir = await historyDir(collectionPath, templateId);
+  const filePath = await join(dir, archiveFilename);
+  return readTextFile(filePath);
 }
 
 export async function createTemplate(

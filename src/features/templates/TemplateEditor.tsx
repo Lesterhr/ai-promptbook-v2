@@ -4,7 +4,7 @@ import { save as saveDialog } from '@tauri-apps/plugin-dialog';
 import { colors, spacing, font, radius } from '../../ui/theme';
 import { Button, Input, Select } from '../../ui/components';
 import type { Template, TemplateCategory } from '../../domain';
-import { now } from '../../domain';
+import { now, suggestNextVersions } from '../../domain';
 import * as storage from '../../services/storageService';
 import { useAppStore } from '../../state/appStore';
 
@@ -35,10 +35,21 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
   const [description, setDescription] = useState(template.description);
   const [category, setCategory] = useState<TemplateCategory>(template.category);
   const [tags, setTags] = useState(template.tags.join(', '));
-  const [version, setVersion] = useState(template.version);
-  const [versionMode, setVersionMode] = useState<'keep' | 'new'>('keep');
+  const suggestions = suggestNextVersions(template.version);
+  const [version, setVersion] = useState(suggestions[0]);
+  const [versionMode, setVersionMode] = useState<'keep' | 'patch' | 'minor' | 'major' | 'custom'>('keep');
   const [content, setContent] = useState(template.content);
   const [saving, setSaving] = useState(false);
+
+  const resolveVersion = (): string => {
+    switch (versionMode) {
+      case 'patch': return suggestions[0];
+      case 'minor': return suggestions[1];
+      case 'major': return suggestions[2];
+      case 'custom': return version;
+      default: return template.version;
+    }
+  };
 
   const buildUpdatedTemplate = (): Template => {
     return {
@@ -50,7 +61,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean),
-      version: versionMode === 'new' ? version : template.version,
+      version: resolveVersion(),
       content,
       updatedAt: now(),
     };
@@ -134,12 +145,15 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
             label="Version" 
             options={[
               { value: 'keep', label: `Keep current (v${template.version})` },
-              { value: 'new', label: 'Create new version' },
+              { value: 'patch', label: `Patch (v${suggestions[0]})` },
+              { value: 'minor', label: `Minor (v${suggestions[1]})` },
+              { value: 'major', label: `Major (v${suggestions[2]})` },
+              { value: 'custom', label: 'Custom version…' },
             ]} 
             value={versionMode} 
-            onChange={(e) => setVersionMode(e.target.value as 'keep' | 'new')} 
+            onChange={(e) => setVersionMode(e.target.value as 'keep' | 'patch' | 'minor' | 'major' | 'custom')} 
           />
-          {versionMode === 'new' && (
+          {versionMode === 'custom' && (
             <Input 
               value={version} 
               onChange={(e) => setVersion(e.target.value)} 
@@ -172,6 +186,8 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
       </div>
       <textarea
         className="selectable"
+        aria-label="Template content"
+        placeholder="Enter template content…"
         value={content}
         onChange={(e) => setContent(e.target.value)}
         style={{

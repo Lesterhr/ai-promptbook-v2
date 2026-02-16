@@ -13,7 +13,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { colors, spacing, font, radius, transition } from '../../ui/theme';
-import { Button, Card, Badge, Input, SectionHeader, EmptyState, Select } from '../../ui/components';
+import { Button, Card, Badge, Input, SectionHeader, EmptyState, Select, ConfirmDialog } from '../../ui/components';
 import { useAppStore } from '../../state/appStore';
 import type { TemplateMetadata } from '../../domain';
 import * as storage from '../../services/storageService';
@@ -52,6 +52,7 @@ export const TemplatesHome: React.FC = () => {
   const [newColDesc, setNewColDesc] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [listMode, setListMode] = useState<ListMode>('hub');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   const navigate = useNavigate();
   const activeCollection = collections.find((c) => c.id === activeCollectionId) ?? null;
@@ -122,16 +123,25 @@ export const TemplatesHome: React.FC = () => {
 
   const handleDeleteTemplate = async (id: string) => {
     if (!activeCollection) return;
+    const template = templates.find(t => t.id === id);
+    if (!template) return;
+    setDeleteConfirm({ id, name: template.name });
+  };
+
+  const confirmDeleteTemplate = async () => {
+    if (!activeCollection || !deleteConfirm) return;
     try {
-      await storage.deleteTemplate(activeCollection.path, id);
+      await storage.deleteTemplate(activeCollection.path, deleteConfirm.id);
       await loadTemplates();
-      if (activeTemplate?.id === id) {
+      if (activeTemplate?.id === deleteConfirm.id) {
         setActiveTemplate(null);
         setViewMode('list');
       }
       showToast('Template deleted');
     } catch (err) {
       showToast(`Error: ${err}`);
+    } finally {
+      setDeleteConfirm(null);
     }
   };
 
@@ -498,6 +508,18 @@ export const TemplatesHome: React.FC = () => {
           onClose={() => setShowCreateDialog(false)}
         />
       )}
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        isOpen={deleteConfirm !== null}
+        title="Delete Template"
+        message={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        onConfirm={confirmDeleteTemplate}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </div>
   );
 };

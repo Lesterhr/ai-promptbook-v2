@@ -298,3 +298,73 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ icon, title, description
     {action}
   </div>
 );
+
+/* ───── ConfirmDialog ───── */
+
+interface ConfirmDialogProps {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  variant?: 'danger' | 'primary';
+}
+
+export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
+  isOpen,
+  title,
+  message,
+  confirmText = 'Confirm',
+  cancelText = 'Cancel',
+  onConfirm,
+  onCancel,
+  variant = 'danger',
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 2000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(0, 0, 0, 0.7)',
+        backdropFilter: 'blur(4px)',
+      }}
+      onClick={onCancel}
+    >
+      <div
+        style={{
+          background: colors.bg.surface,
+          border: `1px solid ${colors.border.default}`,
+          borderRadius: radius.lg,
+          padding: spacing.xl,
+          maxWidth: '500px',
+          width: '90%',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 style={{ fontSize: font.size.xl, fontWeight: font.weight.bold, color: colors.text.primary, margin: 0, marginBottom: spacing.md }}>
+          {title}
+        </h3>
+        <p style={{ fontSize: font.size.md, color: colors.text.secondary, marginBottom: spacing.xl, lineHeight: 1.6 }}>
+          {message}
+        </p>
+        <div style={{ display: 'flex', gap: spacing.md, justifyContent: 'flex-end' }}>
+          <Button variant="secondary" onClick={onCancel}>
+            {cancelText}
+          </Button>
+          <Button variant={variant} onClick={onConfirm}>
+            {confirmText}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};

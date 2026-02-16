@@ -11,7 +11,8 @@
       "allow": [
         { "path": "$HOME/.ai-promptbook" },
         { "path": "$HOME/.ai-promptbook/**" },
-        { "path": "$RESOURCE/**" }
+        { "path": "$RESOURCE/**" },
+        { "path": "**" }
       ]
     },
     "fs:allow-exists",

@@ -84,15 +84,42 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onEd
         }}
       >
         <Badge>{template.category}</Badge>
-        <span style={{ fontSize: font.size.sm, color: colors.text.muted, display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+        <span style={{
+          fontSize: font.size.sm,
+          color: colors.text.muted,
+          display: 'flex',
+          alignItems: 'center',
+          gap: spacing.xs,
+          background: 'rgba(35, 39, 56, 0.85)',
+          padding: `2px ${spacing.sm}`,
+          borderRadius: radius.full,
+        }}>
           <Hash size={14} /> v{template.version}
         </span>
-        <span style={{ fontSize: font.size.sm, color: colors.text.muted, display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+        <span style={{
+          fontSize: font.size.sm,
+          color: colors.text.muted,
+          display: 'flex',
+          alignItems: 'center',
+          gap: spacing.xs,
+          background: 'rgba(35, 39, 56, 0.85)',
+          padding: `2px ${spacing.sm}`,
+          borderRadius: radius.full,
+        }}>
           <Clock size={14} />
           Updated {new Date(template.updatedAt).toLocaleDateString()}
         </span>
         {template.lastUsedAt && (
-          <span style={{ fontSize: font.size.sm, color: colors.text.muted, display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+          <span style={{
+            fontSize: font.size.sm,
+            color: colors.text.muted,
+            display: 'flex',
+            alignItems: 'center',
+            gap: spacing.xs,
+            background: 'rgba(35, 39, 56, 0.85)',
+            padding: `2px ${spacing.sm}`,
+            borderRadius: radius.full,
+          }}>
             <Clock size={14} />
             Last used {new Date(template.lastUsedAt).toLocaleDateString()}
           </span>

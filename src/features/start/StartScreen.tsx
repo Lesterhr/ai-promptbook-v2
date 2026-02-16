@@ -6,13 +6,13 @@ import {
   Clock,
   ArrowRight,
   FolderOpen,
-  Sparkles,
   TrendingUp,
 } from 'lucide-react';
 import { colors, spacing, font } from '../../ui/theme';
 import { Card, SectionHeader, Badge } from '../../ui/components';
 import { useAppStore } from '../../state/appStore';
 import type { TemplateMetadata } from '../../domain';
+
 
 /* ─── Quick-action tiles ─── */
 
@@ -30,14 +30,14 @@ const quickActions: QuickAction[] = [
     description: 'Create, edit & manage agent instructions and prompts',
     icon: <FileText size={28} />,
     to: '/templates',
-    gradient: `linear-gradient(135deg, ${colors.accent.blue}22, ${colors.accent.purple}22)`,
+    gradient: 'rgba(47, 51, 71, 0.72)',
   },
   {
     label: 'Repo Creator',
     description: 'Set up a new GitHub repository with templates',
     icon: <GitBranch size={28} />,
     to: '/repo-creator',
-    gradient: `linear-gradient(135deg, ${colors.accent.green}22, ${colors.accent.blue}22)`,
+    gradient: 'rgba(47, 51, 71, 0.72)',
   },
 ];
 
@@ -63,13 +63,15 @@ export const StartScreen: React.FC = () => {
       {/* Hero */}
       <div style={{ marginBottom: spacing['3xl'] }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, marginBottom: spacing.sm }}>
-          <Sparkles size={32} color={colors.accent.blue} />
+          <span style={{ fontSize: '2rem', color: colors.accent.blue, lineHeight: 1 }}>本</span>
           <h1
             style={{
               fontSize: font.size['3xl'],
-              fontWeight: font.weight.bold,
+              fontWeight: 700,
               color: colors.text.primary,
               margin: 0,
+              fontFamily: "'Orbitron', sans-serif",
+              letterSpacing: '0.04em',
             }}
           >
             AI Promptbook

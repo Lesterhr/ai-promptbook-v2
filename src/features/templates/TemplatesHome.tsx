@@ -255,7 +255,7 @@ export const TemplatesHome: React.FC = () => {
               borderRadius: radius.full,
               fontSize: font.size.sm,
               fontWeight: col.id === activeCollectionId ? font.weight.semibold : font.weight.normal,
-              background: col.id === activeCollectionId ? `${colors.accent.blue}22` : 'transparent',
+              background: col.id === activeCollectionId ? `${colors.accent.blue}22` : 'rgba(35, 39, 56, 0.85)',
               color: col.id === activeCollectionId ? colors.accent.blue : colors.text.secondary,
               border: `1px solid ${col.id === activeCollectionId ? colors.accent.blue : colors.border.default}`,
               transition: `all ${transition.fast}`,
@@ -271,6 +271,7 @@ export const TemplatesHome: React.FC = () => {
             borderRadius: radius.full,
             fontSize: font.size.sm,
             color: colors.text.muted,
+            background: 'rgba(35, 39, 56, 0.85)',
             border: `1px dashed ${colors.border.default}`,
           }}
         >
@@ -404,7 +405,8 @@ export const TemplatesHome: React.FC = () => {
                   key={cat.id}
                   onClick={() => { setCategoryFilter(cat.id); setListMode('flat'); }}
                   style={{
-                    background: colors.bg.surface,
+                    background: 'rgba(35, 39, 56, 0.72)',
+                    backdropFilter: 'blur(8px)',
                     border: `1px solid ${colors.border.subtle}`,
                     borderRadius: radius.lg,
                     padding: spacing.xl,
@@ -569,8 +571,20 @@ const TemplateRow: React.FC<{
 
       <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flexShrink: 0 }}>
         <Badge>{tpl.category}</Badge>
-        <span style={{ fontSize: font.size.xs, color: colors.text.muted }}>v{tpl.version}</span>
-        <span style={{ fontSize: font.size.xs, color: colors.text.muted }}>
+        <span style={{
+          fontSize: font.size.xs,
+          color: colors.text.muted,
+          background: 'rgba(35, 39, 56, 0.85)',
+          padding: `1px ${spacing.sm}`,
+          borderRadius: radius.full,
+        }}>v{tpl.version}</span>
+        <span style={{
+          fontSize: font.size.xs,
+          color: colors.text.muted,
+          background: 'rgba(35, 39, 56, 0.85)',
+          padding: `1px ${spacing.sm}`,
+          borderRadius: radius.full,
+        }}>
           {tpl.useCount} uses
         </span>
         <button

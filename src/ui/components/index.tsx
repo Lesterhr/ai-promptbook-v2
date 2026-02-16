@@ -79,6 +79,9 @@ interface CardProps {
   interactive?: boolean;
 }
 
+const cardBg = 'rgba(35, 39, 56, 0.72)';
+const cardBgHover = 'rgba(42, 46, 66, 0.82)';
+
 export const Card: React.FC<CardProps> = ({ children, style, onClick, interactive }) => (
   <div
     onClick={onClick}
@@ -86,7 +89,8 @@ export const Card: React.FC<CardProps> = ({ children, style, onClick, interactiv
     role={onClick ? 'button' : undefined}
     tabIndex={onClick ? 0 : undefined}
     style={{
-      background: colors.bg.surface,
+      background: cardBg,
+      backdropFilter: 'blur(8px)',
       border: `1px solid ${colors.border.subtle}`,
       borderRadius: radius.lg,
       padding: spacing.xl,
@@ -97,13 +101,15 @@ export const Card: React.FC<CardProps> = ({ children, style, onClick, interactiv
     onMouseEnter={(e) => {
       if (interactive || onClick) {
         e.currentTarget.style.borderColor = colors.accent.blue;
-        e.currentTarget.style.background = colors.bg.elevated;
+        if (!style?.background) {
+          e.currentTarget.style.background = cardBgHover;
+        }
       }
     }}
     onMouseLeave={(e) => {
       if (interactive || onClick) {
         e.currentTarget.style.borderColor = colors.border.subtle;
-        e.currentTarget.style.background = colors.bg.surface;
+        e.currentTarget.style.background = (style?.background as string) ?? cardBg;
       }
     }}
   >
@@ -127,7 +133,7 @@ export const Badge: React.FC<BadgeProps> = ({ children, color = colors.accent.bl
       borderRadius: radius.full,
       fontSize: font.size.xs,
       fontWeight: font.weight.medium,
-      background: `${color}22`,
+      background: `rgba(35, 39, 56, 0.85)`,
       color,
       border: `1px solid ${color}44`,
     }}

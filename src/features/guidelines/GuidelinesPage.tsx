@@ -145,7 +145,7 @@ export const GuidelinesPage: React.FC = () => {
       </nav>
 
       {/* ── Right: Content ── */}
-      <div ref={contentRef} style={{ flex: 1, overflow: 'auto', paddingBottom: spacing['3xl'] }}>
+      <div ref={contentRef} style={{ flex: 1, overflow: 'auto', paddingBottom: spacing['3xl'], paddingRight: spacing.lg }}>
         {/* ─── Overview ─── */}
         {activeSection === 'overview' && !activeDiscipline && (
           <div>
@@ -167,7 +167,8 @@ export const GuidelinesPage: React.FC = () => {
                 <div
                   key={d.id}
                   style={{
-                    background: colors.bg.surface,
+                    background: 'rgba(35, 39, 56, 0.72)',
+                    backdropFilter: 'blur(8px)',
                     border: `1px solid ${colors.border.subtle}`,
                     borderRadius: radius.lg,
                     padding: spacing.xl,
@@ -217,7 +218,8 @@ export const GuidelinesPage: React.FC = () => {
                 onClick={() => setActiveSection('best-practices')}
                 style={{
                   flex: 1, padding: spacing.xl,
-                  background: colors.bg.surface, border: `1px solid ${colors.border.subtle}`,
+                  background: 'rgba(35, 39, 56, 0.72)', backdropFilter: 'blur(8px)',
+                  border: `1px solid ${colors.border.subtle}`,
                   borderRadius: radius.lg, textAlign: 'left', cursor: 'pointer',
                   transition: `all ${transition.fast}`,
                 }}
@@ -236,7 +238,8 @@ export const GuidelinesPage: React.FC = () => {
                 onClick={() => setActiveSection('prompt-modes')}
                 style={{
                   flex: 1, padding: spacing.xl,
-                  background: colors.bg.surface, border: `1px solid ${colors.border.subtle}`,
+                  background: 'rgba(35, 39, 56, 0.72)', backdropFilter: 'blur(8px)',
+                  border: `1px solid ${colors.border.subtle}`,
                   borderRadius: radius.lg, textAlign: 'left', cursor: 'pointer',
                   transition: `all ${transition.fast}`,
                 }}
@@ -396,7 +399,8 @@ export const GuidelinesPage: React.FC = () => {
                 </h2>
                 <p style={{ ...proseStyle, marginBottom: spacing.md }}>{bp.description}</p>
                 <div style={{
-                  background: colors.bg.surface, border: `1px solid ${colors.border.subtle}`,
+                  background: 'rgba(35, 39, 56, 0.72)', backdropFilter: 'blur(8px)',
+                  border: `1px solid ${colors.border.subtle}`,
                   borderRadius: radius.md, padding: spacing.xl,
                 }}>
                   <ul style={{ margin: 0, paddingLeft: spacing.lg }}>
@@ -446,7 +450,8 @@ export const GuidelinesPage: React.FC = () => {
                   <div
                     key={mode.name}
                     style={{
-                      background: colors.bg.surface,
+                      background: 'rgba(35, 39, 56, 0.72)',
+                      backdropFilter: 'blur(8px)',
                       border: `1px solid ${colors.border.subtle}`,
                       borderRadius: radius.lg,
                       padding: spacing.xl,

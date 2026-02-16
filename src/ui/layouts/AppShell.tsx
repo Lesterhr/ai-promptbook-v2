@@ -7,10 +7,10 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
   BookOpen,
 } from 'lucide-react';
 import { colors, spacing, font, radius, transition } from '../theme';
+import background from '../../assets/images/backgrounds/Background.png';
 
 interface NavItem {
   to: string;
@@ -39,7 +39,9 @@ export const AppShell: React.FC = () => {
           minWidth: sidebarWidth,
           display: 'flex',
           flexDirection: 'column',
-          background: colors.bg.secondary,
+          backgroundImage: `linear-gradient(rgba(15, 17, 23, 0.78), rgba(15, 17, 23, 0.78)), url(${background})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
           borderRight: `1px solid ${colors.border.subtle}`,
           transition: `width ${transition.normal}`,
           overflow: 'hidden',
@@ -56,14 +58,16 @@ export const AppShell: React.FC = () => {
             minHeight: 64,
           }}
         >
-          <Sparkles size={24} color={colors.accent.blue} />
+          <span style={{ fontSize: '1.5rem', color: colors.accent.blue, lineHeight: 1 }}>本</span>
           {!collapsed && (
             <span
               style={{
                 fontSize: font.size.lg,
-                fontWeight: font.weight.bold,
+                fontWeight: 700,
                 color: colors.text.primary,
                 whiteSpace: 'nowrap',
+                fontFamily: "'Orbitron', sans-serif",
+                letterSpacing: '0.04em',
               }}
             >
               AI Promptbook
@@ -123,13 +127,33 @@ export const AppShell: React.FC = () => {
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
+          position: 'relative',
         }}
       >
+        {/* Background image */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundImage: `url(${background})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            opacity: 0.50,
+            pointerEvents: 'none',
+            zIndex: 0,
+          }}
+        />
         <div
           style={{
             flex: 1,
             overflow: 'auto',
             padding: spacing['2xl'],
+            position: 'relative',
+            zIndex: 1,
           }}
         >
           <Outlet />

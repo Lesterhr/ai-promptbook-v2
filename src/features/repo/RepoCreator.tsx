@@ -8,19 +8,33 @@ import {
   EyeOff,
   FolderOpen,
   Key,
+  FileText,
 } from 'lucide-react';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { colors, spacing, font, radius, transition } from '../../ui/theme';
-import { Button, Card, Input, TextArea, Select, SectionHeader } from '../../ui/components';
+import { Button, Card, Input, TextArea, Select, SectionHeader, Badge } from '../../ui/components';
 import { useAppStore } from '../../state/appStore';
 import * as githubSvc from '../../services/githubService';
 import { cloneRepo } from '../../services/gitService';
 import { decryptToken } from '../../services/cryptoService';
 import * as storage from '../../services/storageService';
+import { exists, mkdir, writeTextFile } from '@tauri-apps/plugin-fs';
+import { join } from '@tauri-apps/api/path';
+import type { Collection, TemplateMetadata, TemplateCategory } from '../../domain';
 
 type Step = 'form' | 'creating' | 'done';
 type TokenSource = 'saved' | 'manual';
+
+/** Maps template category → subfolder inside the cloned repo */
+const CATEGORY_FOLDER: Record<TemplateCategory, string> = {
+  instruction: '.github',
+  'system-prompt': '.prompts',
+  readme: '',
+  workflow: '.github/workflows',
+  snippet: '.prompts',
+  other: '',
+};
 
 export const RepoCreator: React.FC = () => {
   const { githubToken, setGithubToken, savedTokens, setSavedTokens, activeTokenId, setActiveTokenId, showToast } = useAppStore();
@@ -45,6 +59,12 @@ export const RepoCreator: React.FC = () => {
 
   const [createdUrl, setCreatedUrl] = useState('');
   const [clonedPath, setClonedPath] = useState('');
+
+  // Template picker state
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [browseCollectionId, setBrowseCollectionId] = useState('');
+  const [browseTemplates, setBrowseTemplates] = useState<TemplateMetadata[]>([]);
+  const [pickedTemplates, setPickedTemplates] = useState<Map<string, { collectionPath: string; meta: TemplateMetadata }>>(new Map());
 
   /* Load saved tokens on mount */
   useEffect(() => {
@@ -119,6 +139,34 @@ export const RepoCreator: React.FC = () => {
     }
   }, []);
 
+  /* ─── Load collections & templates for picker ─── */
+  useEffect(() => {
+    storage.listCollections().then((cols) => {
+      setCollections(cols);
+      if (cols.length > 0 && !browseCollectionId) setBrowseCollectionId(cols[0].id);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!browseCollectionId) { setBrowseTemplates([]); return; }
+    const col = collections.find((c) => c.id === browseCollectionId);
+    if (!col) return;
+    storage.listTemplates(col.path).then(setBrowseTemplates);
+  }, [browseCollectionId, collections]);
+
+  const toggleTemplate = (meta: TemplateMetadata) => {
+    setPickedTemplates((prev) => {
+      const next = new Map(prev);
+      if (next.has(meta.id)) {
+        next.delete(meta.id);
+      } else {
+        const col = collections.find((c) => c.id === browseCollectionId);
+        if (col) next.set(meta.id, { collectionPath: col.path, meta });
+      }
+      return next;
+    });
+  };
+
   /* ─── Pick local folder ─── */
   const handlePickFolder = async () => {
     try {
@@ -152,6 +200,21 @@ export const RepoCreator: React.FC = () => {
         const targetDir = `${localPath}\\${repoName.trim()}`;
         await cloneRepo(resolvedToken, repo.fullName, targetDir);
         setClonedPath(targetDir);
+
+        // Copy selected templates into the cloned repo
+        for (const { collectionPath, meta } of pickedTemplates.values()) {
+          try {
+            const tpl = await storage.readTemplate(collectionPath, meta);
+            const subFolder = CATEGORY_FOLDER[meta.category];
+            const destDir = subFolder ? await join(targetDir, subFolder) : targetDir;
+            if (!(await exists(destDir))) await mkdir(destDir, { recursive: true });
+            const destFile = await join(destDir, meta.filename);
+            await writeTextFile(destFile, tpl.content);
+          } catch (e) {
+            console.error(`Failed to copy template "${meta.name}" to ${CATEGORY_FOLDER[meta.category] || '/'}:`, e);
+          }
+        }
+
         showToast(`Repository "${repo.fullName}" created & cloned!`);
       } else {
         setClonedPath('');
@@ -217,6 +280,7 @@ export const RepoCreator: React.FC = () => {
               setRepoName('');
               setRepoDesc('');
               setClonedPath('');
+              setPickedTemplates(new Map());
             }}
           >
             Create Another
@@ -451,17 +515,145 @@ export const RepoCreator: React.FC = () => {
             </p>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: spacing.md }}>
-            <Button
-              onClick={handleCreate}
-              disabled={!tokenValid || !repoName.trim()}
-              icon={<GitBranch size={16} />}
-            >
-              Create Repository
-            </Button>
-          </div>
         </div>
       </Card>
+
+      {/* ─── Template Selection ─── */}
+      <Card style={{ marginTop: spacing.xl }}>
+        <h3
+          style={{
+            fontSize: font.size.lg,
+            fontWeight: font.weight.semibold,
+            color: colors.text.primary,
+            marginBottom: spacing.sm,
+            display: 'flex',
+            alignItems: 'center',
+            gap: spacing.sm,
+          }}
+        >
+          <FileText size={18} />
+          Include Templates
+          {pickedTemplates.size > 0 && (
+            <Badge color={colors.accent.green}>{pickedTemplates.size}</Badge>
+          )}
+        </h3>
+        <p style={{ fontSize: font.size.sm, color: colors.text.muted, marginBottom: spacing.lg }}>
+          Add templates from your collections to the new repository
+          {!localPath && ' — select a local folder above to enable'}
+        </p>
+
+        {collections.length === 0 ? (
+          <p style={{ fontSize: font.size.sm, color: colors.text.muted }}>
+            No collections available. Create a collection first.
+          </p>
+        ) : (
+          <>
+            <Select
+              label="Collection"
+              options={collections.map((c) => ({ value: c.id, label: `${c.name} (${c.templateCount})` }))}
+              value={browseCollectionId}
+              onChange={(e) => setBrowseCollectionId(e.target.value)}
+            />
+
+            {browseTemplates.length > 0 ? (
+              <div style={{ marginTop: spacing.lg, display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                {browseTemplates.map((tpl) => {
+                  const selected = pickedTemplates.has(tpl.id);
+                  const folder = CATEGORY_FOLDER[tpl.category] || '/';
+                  return (
+                    <div
+                      key={tpl.id}
+                      onClick={() => toggleTemplate(tpl)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: spacing.md,
+                        padding: `${spacing.sm} ${spacing.md}`,
+                        borderRadius: radius.md,
+                        cursor: 'pointer',
+                        background: selected ? `${colors.accent.blue}15` : 'transparent',
+                        border: `1px solid ${selected ? colors.accent.blue + '44' : 'transparent'}`,
+                        transition: `all ${transition.fast}`,
+                      }}
+                      onMouseEnter={(e) => { if (!selected) e.currentTarget.style.background = colors.bg.hover; }}
+                      onMouseLeave={(e) => { if (!selected) e.currentTarget.style.background = selected ? `${colors.accent.blue}15` : 'transparent'; }}
+                    >
+                      <div
+                        style={{
+                          width: 18,
+                          height: 18,
+                          borderRadius: radius.sm,
+                          border: `2px solid ${selected ? colors.accent.blue : colors.border.default}`,
+                          background: selected ? colors.accent.blue : 'transparent',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                          transition: `all ${transition.fast}`,
+                        }}
+                      >
+                        {selected && <Check size={12} color="#fff" />}
+                      </div>
+                      <span style={{ flex: 1, fontSize: font.size.md, color: colors.text.primary }}>
+                        {tpl.name}
+                      </span>
+                      <Badge color={colors.accent.purple}>{tpl.category}</Badge>
+                      <span style={{ fontSize: font.size.xs, color: colors.text.muted, whiteSpace: 'nowrap' }}>
+                        → {folder || '/'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p style={{ fontSize: font.size.sm, color: colors.text.muted, marginTop: spacing.md }}>
+                No templates in this collection.
+              </p>
+            )}
+
+            {/* Summary of all selected templates across collections */}
+            {pickedTemplates.size > 0 && (
+              <div
+                style={{
+                  marginTop: spacing.lg,
+                  padding: spacing.md,
+                  borderRadius: radius.md,
+                  background: `${colors.accent.green}08`,
+                  border: `1px solid ${colors.accent.green}22`,
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: font.size.sm,
+                    color: colors.accent.green,
+                    fontWeight: font.weight.medium,
+                    marginBottom: spacing.xs,
+                  }}
+                >
+                  {pickedTemplates.size} template{pickedTemplates.size !== 1 ? 's' : ''} selected
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing.xs }}>
+                  {[...pickedTemplates.values()].map(({ meta }) => (
+                    <Badge key={meta.id} color={colors.text.secondary}>
+                      {meta.name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </Card>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: spacing.xl }}>
+        <Button
+          onClick={handleCreate}
+          disabled={!tokenValid || !repoName.trim()}
+          icon={<GitBranch size={16} />}
+        >
+          Create Repository
+        </Button>
+      </div>
     </div>
   );
 };

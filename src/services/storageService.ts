@@ -162,9 +162,10 @@ export async function createTemplate(
   name: string,
   category: import('../domain').TemplateCategory,
   content: string,
+  customFilename?: string,
 ): Promise<Template> {
   const id = uuid();
-  const filename = `${name.toLowerCase().replace(/\s+/g, '-')}.instructions.md`;
+  const filename = customFilename || `${name.toLowerCase().replace(/\s+/g, '-')}.instructions.md`;
 
   const template: Template = {
     id,

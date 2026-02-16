@@ -8,6 +8,9 @@ import {
   Download,
   Trash2,
   FileText,
+  LayoutGrid,
+  List,
+  Sparkles,
 } from 'lucide-react';
 import { colors, spacing, font, radius, transition } from '../../ui/theme';
 import { Button, Card, Badge, Input, SectionHeader, EmptyState, Select } from '../../ui/components';
@@ -18,8 +21,12 @@ import * as syncSvc from '../../services/syncService';
 import { TemplateEditor } from './TemplateEditor';
 import { TemplatePreview } from './TemplatePreview';
 import { TemplateImportDialog } from './TemplateImportDialog';
+import { TemplateCreateDialog } from './TemplateCreateDialog';
+import { categoryInfoMap } from '../../data/guidelineContent';
+import { useNavigate } from 'react-router-dom';
 
 type ViewMode = 'list' | 'editor' | 'preview';
+type ListMode = 'flat' | 'hub';
 
 export const TemplatesHome: React.FC = () => {
   const {
@@ -39,11 +46,14 @@ export const TemplatesHome: React.FC = () => {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showNewCollection, setShowNewCollection] = useState(false);
   const [newColName, setNewColName] = useState('');
   const [newColDesc, setNewColDesc] = useState('');
   const [syncing, setSyncing] = useState(false);
+  const [listMode, setListMode] = useState<ListMode>('hub');
 
+  const navigate = useNavigate();
   const activeCollection = collections.find((c) => c.id === activeCollectionId) ?? null;
 
   /* ─── Load data ─── */
@@ -98,21 +108,16 @@ export const TemplatesHome: React.FC = () => {
     }
   };
 
-  const handleNewTemplate = async () => {
-    if (!activeCollection) return;
-    try {
-      const tpl = await storage.createTemplate(
-        activeCollection.path,
-        'New Template',
-        'instruction',
-        '# New Template\n\nAdd your content here.\n',
-      );
-      await loadTemplates();
-      setActiveTemplate(tpl);
-      setViewMode('editor');
-    } catch (err) {
-      showToast(`Error: ${err}`);
-    }
+  const handleNewTemplate = () => {
+    setShowCreateDialog(true);
+  };
+
+  const handleTemplateCreated = async (tpl: import('../../domain').Template) => {
+    setShowCreateDialog(false);
+    await loadTemplates();
+    await loadCollections();
+    setActiveTemplate(tpl);
+    setViewMode('editor');
   };
 
   const handleDeleteTemplate = async (id: string) => {
@@ -213,7 +218,7 @@ export const TemplatesHome: React.FC = () => {
             <Button variant="ghost" size="sm" icon={<Upload size={16} />} onClick={() => setShowImportDialog(true)}>
               Import
             </Button>
-            <Button size="sm" icon={<Plus size={16} />} onClick={handleNewTemplate} disabled={!activeCollection}>
+            <Button size="sm" icon={<Plus size={16} />} onClick={handleNewTemplate}>
               New Template
             </Button>
           </div>
@@ -316,7 +321,7 @@ export const TemplatesHome: React.FC = () => {
       )}
 
       {/* Search & filter bar */}
-      <div style={{ display: 'flex', gap: spacing.md, marginBottom: spacing.lg }}>
+      <div style={{ display: 'flex', gap: spacing.md, marginBottom: spacing.lg, alignItems: 'flex-end' }}>
         <div style={{ flex: 1 }}>
           <Input
             placeholder="Search templates…"
@@ -339,9 +344,37 @@ export const TemplatesHome: React.FC = () => {
           onChange={(e) => setCategoryFilter(e.target.value)}
           style={{ width: 180 }}
         />
+        {/* View toggle */}
+        <div style={{ display: 'flex', border: `1px solid ${colors.border.default}`, borderRadius: radius.md, overflow: 'hidden' }}>
+          <button
+            onClick={() => setListMode('hub')}
+            title="Category view"
+            style={{
+              padding: `${spacing.sm} ${spacing.md}`,
+              background: listMode === 'hub' ? `${colors.accent.blue}22` : colors.bg.tertiary,
+              color: listMode === 'hub' ? colors.accent.blue : colors.text.muted,
+              display: 'flex', alignItems: 'center',
+              borderRight: `1px solid ${colors.border.default}`,
+            }}
+          >
+            <LayoutGrid size={16} />
+          </button>
+          <button
+            onClick={() => setListMode('flat')}
+            title="List view"
+            style={{
+              padding: `${spacing.sm} ${spacing.md}`,
+              background: listMode === 'flat' ? `${colors.accent.blue}22` : colors.bg.tertiary,
+              color: listMode === 'flat' ? colors.accent.blue : colors.text.muted,
+              display: 'flex', alignItems: 'center',
+            }}
+          >
+            <List size={16} />
+          </button>
+        </div>
       </div>
 
-      {/* Template list */}
+      {/* Template list / hub */}
       {!activeCollection ? (
         <EmptyState
           icon={<FolderOpen size={48} />}
@@ -349,6 +382,79 @@ export const TemplatesHome: React.FC = () => {
           description="Create a collection to start organising your templates."
           action={<Button onClick={() => setShowNewCollection(true)} icon={<Plus size={16} />}>Create Collection</Button>}
         />
+      ) : listMode === 'hub' && categoryFilter === 'all' && !search ? (
+        /* ── Category Hub View ── */
+        <div>
+          {/* Category cards grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: spacing.lg, marginBottom: spacing['2xl'] }}>
+            {Object.values(categoryInfoMap).map((cat) => {
+              const count = templates.filter((t) => t.category === cat.id).length;
+              return (
+                <div
+                  key={cat.id}
+                  onClick={() => { setCategoryFilter(cat.id); setListMode('flat'); }}
+                  style={{
+                    background: colors.bg.surface,
+                    border: `1px solid ${colors.border.subtle}`,
+                    borderRadius: radius.lg,
+                    padding: spacing.xl,
+                    cursor: 'pointer',
+                    transition: `all ${transition.fast}`,
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = cat.color; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = colors.border.subtle; }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.md }}>
+                    <div style={{
+                      width: 40, height: 40, borderRadius: radius.md,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: `${cat.color}22`, color: cat.color,
+                    }}>
+                      {cat.id === 'system-prompt' ? <Sparkles size={20} /> : <FileText size={20} />}
+                    </div>
+                    <span style={{
+                      fontSize: font.size['2xl'], fontWeight: font.weight.bold,
+                      color: count > 0 ? cat.color : colors.text.muted,
+                    }}>
+                      {count}
+                    </span>
+                  </div>
+                  <div style={{ fontWeight: font.weight.semibold, color: colors.text.primary, marginBottom: 4 }}>
+                    {cat.label}
+                  </div>
+                  <div style={{ fontSize: font.size.xs, color: colors.text.muted, lineHeight: 1.4 }}>
+                    {cat.description}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.md }}>
+                    <span
+                      onClick={(e) => { e.stopPropagation(); navigate('/guidelines'); }}
+                      style={{ fontSize: font.size.xs, color: colors.accent.blue, cursor: 'pointer' }}
+                    >
+                      View Guide →
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Recent templates below the hub */}
+          {templates.length > 0 && (
+            <>
+              <h3 style={{
+                fontSize: font.size.lg, fontWeight: font.weight.semibold,
+                color: colors.text.primary, marginBottom: spacing.md,
+              }}>
+                All Templates ({templates.length})
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+                {templates.map((tpl) => (
+                  <TemplateRow key={tpl.id} tpl={tpl} onOpen={handleOpenTemplate} onDelete={handleDeleteTemplate} />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<FileText size={48} />}
@@ -368,67 +474,7 @@ export const TemplatesHome: React.FC = () => {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
           {filtered.map((tpl) => (
-            <Card
-              key={tpl.id}
-              interactive
-              onClick={() => handleOpenTemplate(tpl)}
-              style={{ padding: `${spacing.md} ${spacing.xl}` }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flex: 1, minWidth: 0 }}>
-                  <FileText size={18} color={colors.accent.blue} />
-                  <div style={{ minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontWeight: font.weight.medium,
-                        color: colors.text.primary,
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                      }}
-                    >
-                      {tpl.name}
-                    </div>
-                    {tpl.description && (
-                      <div
-                        style={{
-                          fontSize: font.size.sm,
-                          color: colors.text.muted,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                      >
-                        {tpl.description}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flexShrink: 0 }}>
-                  <Badge>{tpl.category}</Badge>
-                  <span style={{ fontSize: font.size.xs, color: colors.text.muted }}>v{tpl.version}</span>
-                  <span style={{ fontSize: font.size.xs, color: colors.text.muted }}>
-                    {tpl.useCount} uses
-                  </span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteTemplate(tpl.id);
-                    }}
-                    style={{
-                      color: colors.text.muted,
-                      padding: spacing.xs,
-                      borderRadius: radius.sm,
-                      display: 'flex',
-                    }}
-                    title="Delete template"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            </Card>
+            <TemplateRow key={tpl.id} tpl={tpl} onOpen={handleOpenTemplate} onDelete={handleDeleteTemplate} />
           ))}
         </div>
       )}
@@ -444,6 +490,83 @@ export const TemplatesHome: React.FC = () => {
           }}
         />
       )}
+
+      {/* Create dialog */}
+      {showCreateDialog && (
+        <TemplateCreateDialog
+          onCreated={handleTemplateCreated}
+          onClose={() => setShowCreateDialog(false)}
+        />
+      )}
     </div>
   );
 };
+
+/* ── Extracted TemplateRow ── */
+
+const TemplateRow: React.FC<{
+  tpl: TemplateMetadata;
+  onOpen: (tpl: TemplateMetadata) => void;
+  onDelete: (id: string) => void;
+}> = ({ tpl, onOpen, onDelete }) => (
+  <Card
+    interactive
+    onClick={() => onOpen(tpl)}
+    style={{ padding: `${spacing.md} ${spacing.xl}` }}
+  >
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flex: 1, minWidth: 0 }}>
+        <FileText size={18} color={colors.accent.blue} />
+        <div style={{ minWidth: 0 }}>
+          <div
+            style={{
+              fontWeight: font.weight.medium,
+              color: colors.text.primary,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {tpl.name}
+          </div>
+          {tpl.description && (
+            <div
+              style={{
+                fontSize: font.size.sm,
+                color: colors.text.muted,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {tpl.description}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flexShrink: 0 }}>
+        <Badge>{tpl.category}</Badge>
+        <span style={{ fontSize: font.size.xs, color: colors.text.muted }}>v{tpl.version}</span>
+        <span style={{ fontSize: font.size.xs, color: colors.text.muted }}>
+          {tpl.useCount} uses
+        </span>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(tpl.id);
+          }}
+          style={{
+            color: colors.text.muted,
+            padding: spacing.xs,
+            borderRadius: radius.sm,
+            display: 'flex',
+          }}
+          title="Delete template"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+    </div>
+  </Card>
+);

@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
+  BookOpen,
 } from 'lucide-react';
 import { colors, spacing, font, radius, transition } from '../theme';
 
@@ -20,6 +21,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: <Home size={20} /> },
   { to: '/templates', label: 'Templates', icon: <FileText size={20} /> },
+  { to: '/guidelines', label: 'Guidelines', icon: <BookOpen size={20} /> },
   { to: '/repo-creator', label: 'Repo Creator', icon: <GitBranch size={20} /> },
   { to: '/settings', label: 'Settings', icon: <Settings size={20} /> },
 ];

@@ -255,7 +255,7 @@ export const TemplatesHome: React.FC = () => {
               borderRadius: radius.full,
               fontSize: font.size.sm,
               fontWeight: col.id === activeCollectionId ? font.weight.semibold : font.weight.normal,
-              background: col.id === activeCollectionId ? `${colors.accent.blue}22` : 'rgba(35, 39, 56, 0.85)',
+              background: col.id === activeCollectionId ? 'rgba(35, 39, 56, 0.85)' : 'rgba(35, 39, 56, 0.85)',
               color: col.id === activeCollectionId ? colors.accent.blue : colors.text.secondary,
               border: `1px solid ${col.id === activeCollectionId ? colors.accent.blue : colors.border.default}`,
               transition: `all ${transition.fast}`,

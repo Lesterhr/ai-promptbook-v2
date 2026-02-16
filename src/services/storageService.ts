@@ -74,7 +74,19 @@ export async function listCollections(): Promise<Collection[]> {
     const metaPath = await join(colDir, entry.name, 'meta.json');
     if (!(await exists(metaPath))) continue;
     const raw = await readTextFile(metaPath);
-    collections.push(JSON.parse(raw) as Collection);
+    const col = JSON.parse(raw) as Collection;
+
+    // Compute actual template count from index
+    const ip = await join(col.path, '_index.json');
+    if (await exists(ip)) {
+      const idxRaw = await readTextFile(ip);
+      const tpls = JSON.parse(idxRaw) as unknown[];
+      col.templateCount = tpls.length;
+    } else {
+      col.templateCount = 0;
+    }
+
+    collections.push(col);
   }
 
   return collections.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));

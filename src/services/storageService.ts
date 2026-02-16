@@ -140,11 +140,17 @@ export async function saveTemplate(
   collectionPath: string,
   template: Template,
 ): Promise<TemplateMetadata> {
+  // Archive old version if version changed
+  const templates = await listTemplates(collectionPath);
+  const existing = templates.find((t) => t.id === template.id);
+  if (existing && existing.version !== template.version) {
+    await archiveTemplateVersion(collectionPath, existing);
+  }
+
   const filePath = await join(collectionPath, template.filename);
   await writeTextFile(filePath, template.content);
 
   // Update index
-  const templates = await listTemplates(collectionPath);
   const idx = templates.findIndex((t) => t.id === template.id);
   const meta: TemplateMetadata = { ...template, updatedAt: now() };
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -156,6 +162,206 @@ export async function saveTemplate(
   }
   await saveIndex(collectionPath, templates);
   return metaOnly;
+}
+
+/* ────────── Version History ────────── */
+
+export interface ArchivedVersion {
+  version: string;
+  archivedAt: string;
+  filename: string;
+  meta: TemplateMetadata;
+}
+
+/** Get the history directory for a specific template */
+async function historyDir(collectionPath: string, templateId: string): Promise<string> {
+  return join(collectionPath, '_history', templateId);
+}
+
+/** Archive the current version of a template before saving a new version */
+async function archiveTemplateVersion(
+  collectionPath: string,
+  existingMeta: TemplateMetadata,
+): Promise<void> {
+  const dir = await historyDir(collectionPath, existingMeta.id);
+  if (!(await exists(dir))) await mkdir(dir, { recursive: true });
+
+  // Read old content
+  const oldFilePath = await join(collectionPath, existingMeta.filename);
+  let oldContent = '';
+  if (await exists(oldFilePath)) {
+    oldContent = await readTextFile(oldFilePath);
+  }
+
+  const ts = now();
+  const safeVersion = existingMeta.version.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const archiveFilename = `v${safeVersion}.md`;
+
+  // Save archived content
+  const archivePath = await join(dir, archiveFilename);
+  await writeTextFile(archivePath, oldContent);
+
+  // Update history index
+  const indexPath = await join(dir, '_history.json');
+  let history: ArchivedVersion[] = [];
+  if (await exists(indexPath)) {
+    history = JSON.parse(await readTextFile(indexPath)) as ArchivedVersion[];
+  }
+  history.push({
+    version: existingMeta.version,
+    archivedAt: ts,
+    filename: archiveFilename,
+    meta: existingMeta,
+  });
+  await writeTextFile(indexPath, JSON.stringify(history, null, 2));
+}
+
+/** List all archived versions for a template */
+export async function listTemplateHistory(
+  collectionPath: string,
+  templateId: string,
+): Promise<ArchivedVersion[]> {
+  const dir = await historyDir(collectionPath, templateId);
+  const indexPath = await join(dir, '_history.json');
+  if (!(await exists(indexPath))) return [];
+  const raw = await readTextFile(indexPath);
+  return (JSON.parse(raw) as ArchivedVersion[]).sort(
+    (a, b) => b.archivedAt.localeCompare(a.archivedAt),
+  );
+}
+
+/** Read the content of an archived template version */
+export async function readArchivedVersion(
+  collectionPath: string,
+  templateId: string,
+  archiveFilename: string,
+): Promise<string> {
+  const dir = await historyDir(collectionPath, templateId);
+  const filePath = await join(dir, archiveFilename);
+  return readTextFile(filePath);
+}
+
+/** Delete specific archived versions for a template */
+export async function deleteArchivedVersions(
+  collectionPath: string,
+  templateId: string,
+  archiveFilenames: string[],
+): Promise<void> {
+  const dir = await historyDir(collectionPath, templateId);
+  const idxPath = await join(dir, '_history.json');
+  if (!(await exists(idxPath))) return;
+
+  let history = JSON.parse(await readTextFile(idxPath)) as ArchivedVersion[];
+  for (const fn of archiveFilenames) {
+    const fp = await join(dir, fn);
+    if (await exists(fp)) await remove(fp);
+    history = history.filter((h) => h.filename !== fn);
+  }
+
+  if (history.length === 0) {
+    // Remove entire history dir if empty
+    await remove(dir, { recursive: true });
+  } else {
+    await writeTextFile(idxPath, JSON.stringify(history, null, 2));
+  }
+}
+
+/** Delete all archived versions for a template */
+export async function deleteAllTemplateHistory(
+  collectionPath: string,
+  templateId: string,
+): Promise<void> {
+  const dir = await historyDir(collectionPath, templateId);
+  if (await exists(dir)) await remove(dir, { recursive: true });
+}
+
+/** Restore an archived version – replaces the current template content & version */
+export async function restoreArchivedVersion(
+  collectionPath: string,
+  templateId: string,
+  archived: ArchivedVersion,
+): Promise<void> {
+  const content = await readArchivedVersion(collectionPath, templateId, archived.filename);
+  const templates = await listTemplates(collectionPath);
+  const current = templates.find((t) => t.id === templateId);
+  if (!current) throw new Error('Template not found');
+
+  // Archive current version before restoring
+  await archiveTemplateVersion(collectionPath, current);
+
+  // Build restored template
+  const restored: Template = {
+    ...current,
+    version: archived.version,
+    content,
+    updatedAt: now(),
+  };
+  const filePath = await join(collectionPath, restored.filename);
+  await writeTextFile(filePath, content);
+
+  const idx = templates.findIndex((t) => t.id === templateId);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { content: _c, ...metaOnly } = restored as Template;
+  templates[idx] = metaOnly;
+  await saveIndex(collectionPath, templates);
+}
+
+/** List all histories across all templates in a collection */
+export async function listAllHistories(
+  collectionPath: string,
+): Promise<{ templateId: string; templateName: string; versions: ArchivedVersion[] }[]> {
+  const historyRoot = await join(collectionPath, '_history');
+  if (!(await exists(historyRoot))) return [];
+
+  const entries = await readDir(historyRoot);
+  const templates = await listTemplates(collectionPath);
+  const results: { templateId: string; templateName: string; versions: ArchivedVersion[] }[] = [];
+
+  for (const entry of entries) {
+    if (!entry.isDirectory) continue;
+    const templateId = entry.name;
+    const tpl = templates.find((t) => t.id === templateId);
+    const idxPath = await join(historyRoot, templateId, '_history.json');
+    if (!(await exists(idxPath))) continue;
+    const history = JSON.parse(await readTextFile(idxPath)) as ArchivedVersion[];
+    results.push({
+      templateId,
+      templateName: tpl?.name ?? archived_name_from_history(history),
+      versions: history.sort((a, b) => b.archivedAt.localeCompare(a.archivedAt)),
+    });
+  }
+
+  return results.sort((a, b) => a.templateName.localeCompare(b.templateName));
+}
+
+function archived_name_from_history(history: ArchivedVersion[]): string {
+  return history[0]?.meta?.name ?? 'Unknown Template';
+}
+
+/** Duplicate a template under a new name */
+export async function duplicateTemplate(
+  collectionPath: string,
+  sourceTemplate: Template,
+  newName: string,
+): Promise<Template> {
+  const id = uuid();
+  const filename = `${newName.toLowerCase().replace(/\s+/g, '-')}.instructions.md`;
+
+  const duplicate: Template = {
+    ...sourceTemplate,
+    id,
+    name: newName,
+    filename,
+    createdAt: now(),
+    updatedAt: now(),
+    lastUsedAt: null,
+    useCount: 0,
+    source: { type: 'created' },
+    version: DEFAULT_VERSION,
+  };
+
+  await saveTemplate(collectionPath, duplicate);
+  return duplicate;
 }
 
 export async function createTemplate(
@@ -220,4 +426,18 @@ export async function importTemplateFromFile(
   const name = sourceFileName.replace(/\.instructions\.md$|\.md$/, '').replace(/[-_]/g, ' ');
   const category = inferCategory(sourceFileName);
   return createTemplate(collectionPath, name, category, content);
+}
+
+/* ────────── Export helpers ────────── */
+
+/**
+ * Export a template to a file. Returns the exported file path.
+ * @param template The template to export
+ * @param destinationPath The destination file path
+ */
+export async function exportTemplateToFile(
+  template: Template,
+  destinationPath: string,
+): Promise<void> {
+  await writeTextFile(destinationPath, template.content);
 }

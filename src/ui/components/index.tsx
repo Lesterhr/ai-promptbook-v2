@@ -79,13 +79,18 @@ interface CardProps {
   interactive?: boolean;
 }
 
+const cardBg = 'rgba(35, 39, 56, 0.72)';
+const cardBgHover = 'rgba(42, 46, 66, 0.82)';
+
 export const Card: React.FC<CardProps> = ({ children, style, onClick, interactive }) => (
   <div
     onClick={onClick}
-    role={onClick ? 'button' : undefined}
+    {...(onClick && { role: 'button' })}
     tabIndex={onClick ? 0 : undefined}
+    {...(onClick && { 'aria-pressed': false })}
     style={{
-      background: colors.bg.surface,
+      background: cardBg,
+      backdropFilter: 'blur(8px)',
       border: `1px solid ${colors.border.subtle}`,
       borderRadius: radius.lg,
       padding: spacing.xl,
@@ -96,13 +101,15 @@ export const Card: React.FC<CardProps> = ({ children, style, onClick, interactiv
     onMouseEnter={(e) => {
       if (interactive || onClick) {
         e.currentTarget.style.borderColor = colors.accent.blue;
-        e.currentTarget.style.background = colors.bg.elevated;
+        if (!style?.background) {
+          e.currentTarget.style.background = cardBgHover;
+        }
       }
     }}
     onMouseLeave={(e) => {
       if (interactive || onClick) {
         e.currentTarget.style.borderColor = colors.border.subtle;
-        e.currentTarget.style.background = colors.bg.surface;
+        e.currentTarget.style.background = (style?.background as string) ?? cardBg;
       }
     }}
   >
@@ -126,7 +133,7 @@ export const Badge: React.FC<BadgeProps> = ({ children, color = colors.accent.bl
       borderRadius: radius.full,
       fontSize: font.size.xs,
       fontWeight: font.weight.medium,
-      background: `${color}22`,
+      background: `rgba(35, 39, 56, 0.85)`,
       color,
       border: `1px solid ${color}44`,
     }}
@@ -298,3 +305,73 @@ export const EmptyState: React.FC<EmptyStateProps> = ({ icon, title, description
     {action}
   </div>
 );
+
+/* ───── ConfirmDialog ───── */
+
+interface ConfirmDialogProps {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  variant?: 'danger' | 'primary';
+}
+
+export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
+  isOpen,
+  title,
+  message,
+  confirmText = 'Confirm',
+  cancelText = 'Cancel',
+  onConfirm,
+  onCancel,
+  variant = 'danger',
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 2000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(0, 0, 0, 0.7)',
+        backdropFilter: 'blur(4px)',
+      }}
+      onClick={onCancel}
+    >
+      <div
+        style={{
+          background: colors.bg.surface,
+          border: `1px solid ${colors.border.default}`,
+          borderRadius: radius.lg,
+          padding: spacing.xl,
+          maxWidth: '500px',
+          width: '90%',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 style={{ fontSize: font.size.xl, fontWeight: font.weight.bold, color: colors.text.primary, margin: 0, marginBottom: spacing.md }}>
+          {title}
+        </h3>
+        <p style={{ fontSize: font.size.md, color: colors.text.secondary, marginBottom: spacing.xl, lineHeight: 1.6 }}>
+          {message}
+        </p>
+        <div style={{ display: 'flex', gap: spacing.md, justifyContent: 'flex-end' }}>
+          <Button variant="secondary" onClick={onCancel}>
+            {cancelText}
+          </Button>
+          <Button variant={variant} onClick={onConfirm}>
+            {confirmText}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};

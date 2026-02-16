@@ -1,10 +1,13 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ArrowLeft, Pencil, Clock, Hash, Tag } from 'lucide-react';
+import { ArrowLeft, Pencil, Clock, Hash, Tag, Download } from 'lucide-react';
+import { save as saveDialog } from '@tauri-apps/plugin-dialog';
 import { colors, spacing, font, radius } from '../../ui/theme';
 import { Button, Badge } from '../../ui/components';
 import type { Template } from '../../domain';
+import * as storage from '../../services/storageService';
+import { useAppStore } from '../../state/appStore';
 
 interface TemplatePreviewProps {
   template: Template;
@@ -13,6 +16,27 @@ interface TemplatePreviewProps {
 }
 
 export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onEdit, onBack }) => {
+  const { showToast } = useAppStore();
+
+  const handleExport = async () => {
+    try {
+      const filePath = await saveDialog({
+        title: 'Export Template',
+        defaultPath: template.filename,
+        filters: [{
+          name: 'Markdown',
+          extensions: ['md']
+        }]
+      });
+      if (filePath) {
+        await storage.exportTemplateToFile(template, filePath);
+        showToast('Template exported successfully');
+      }
+    } catch (err) {
+      showToast(`Export failed: ${err}`);
+    }
+  };
+
   return (
     <div style={{ maxWidth: 960, margin: '0 auto' }}>
       {/* Top bar */}
@@ -27,9 +51,14 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onEd
         <Button variant="ghost" onClick={onBack} icon={<ArrowLeft size={16} />}>
           Back
         </Button>
-        <Button onClick={onEdit} icon={<Pencil size={16} />}>
-          Edit
-        </Button>
+        <div style={{ display: 'flex', gap: spacing.sm }}>
+          <Button variant="secondary" onClick={handleExport} icon={<Download size={16} />}>
+            Export
+          </Button>
+          <Button onClick={onEdit} icon={<Pencil size={16} />}>
+            Edit
+          </Button>
+        </div>
       </div>
 
       {/* Title */}
@@ -55,15 +84,42 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onEd
         }}
       >
         <Badge>{template.category}</Badge>
-        <span style={{ fontSize: font.size.sm, color: colors.text.muted, display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+        <span style={{
+          fontSize: font.size.sm,
+          color: colors.text.muted,
+          display: 'flex',
+          alignItems: 'center',
+          gap: spacing.xs,
+          background: 'rgba(35, 39, 56, 0.85)',
+          padding: `2px ${spacing.sm}`,
+          borderRadius: radius.full,
+        }}>
           <Hash size={14} /> v{template.version}
         </span>
-        <span style={{ fontSize: font.size.sm, color: colors.text.muted, display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+        <span style={{
+          fontSize: font.size.sm,
+          color: colors.text.muted,
+          display: 'flex',
+          alignItems: 'center',
+          gap: spacing.xs,
+          background: 'rgba(35, 39, 56, 0.85)',
+          padding: `2px ${spacing.sm}`,
+          borderRadius: radius.full,
+        }}>
           <Clock size={14} />
           Updated {new Date(template.updatedAt).toLocaleDateString()}
         </span>
         {template.lastUsedAt && (
-          <span style={{ fontSize: font.size.sm, color: colors.text.muted, display: 'flex', alignItems: 'center', gap: spacing.xs }}>
+          <span style={{
+            fontSize: font.size.sm,
+            color: colors.text.muted,
+            display: 'flex',
+            alignItems: 'center',
+            gap: spacing.xs,
+            background: 'rgba(35, 39, 56, 0.85)',
+            padding: `2px ${spacing.sm}`,
+            borderRadius: radius.full,
+          }}>
             <Clock size={14} />
             Last used {new Date(template.lastUsedAt).toLocaleDateString()}
           </span>
@@ -157,9 +213,11 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onEd
             ol: ({ children }) => (
               <ol style={{ paddingLeft: spacing.xl, margin: `${spacing.sm} 0` }}>{children}</ol>
             ),
-            li: ({ children }) => (
-              <li style={{ margin: `${spacing.xs} 0`, color: colors.text.secondary }}>{children}</li>
-            ),
+            li: ({ children }) => {
+              // li is always rendered inside ul/ol by ReactMarkdown — lint false positive
+              const Li = 'li' as const;
+              return <Li style={{ margin: `${spacing.xs} 0`, color: colors.text.secondary, listStyle: 'inherit' }}>{children}</Li>;
+            },
             a: ({ href, children }) => (
               <a href={href} style={{ color: colors.accent.blue, textDecoration: 'underline' }}>
                 {children}

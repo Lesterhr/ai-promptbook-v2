@@ -13,7 +13,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { colors, spacing, font, radius, transition } from '../../ui/theme';
-import { Button, Card, Badge, Input, SectionHeader, EmptyState, Select } from '../../ui/components';
+import { Button, Card, Badge, Input, SectionHeader, EmptyState, Select, ConfirmDialog } from '../../ui/components';
 import { useAppStore } from '../../state/appStore';
 import type { TemplateMetadata } from '../../domain';
 import * as storage from '../../services/storageService';
@@ -52,6 +52,7 @@ export const TemplatesHome: React.FC = () => {
   const [newColDesc, setNewColDesc] = useState('');
   const [syncing, setSyncing] = useState(false);
   const [listMode, setListMode] = useState<ListMode>('hub');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   const navigate = useNavigate();
   const activeCollection = collections.find((c) => c.id === activeCollectionId) ?? null;
@@ -122,16 +123,25 @@ export const TemplatesHome: React.FC = () => {
 
   const handleDeleteTemplate = async (id: string) => {
     if (!activeCollection) return;
+    const template = templates.find(t => t.id === id);
+    if (!template) return;
+    setDeleteConfirm({ id, name: template.name });
+  };
+
+  const confirmDeleteTemplate = async () => {
+    if (!activeCollection || !deleteConfirm) return;
     try {
-      await storage.deleteTemplate(activeCollection.path, id);
+      await storage.deleteTemplate(activeCollection.path, deleteConfirm.id);
       await loadTemplates();
-      if (activeTemplate?.id === id) {
+      if (activeTemplate?.id === deleteConfirm.id) {
         setActiveTemplate(null);
         setViewMode('list');
       }
       showToast('Template deleted');
     } catch (err) {
       showToast(`Error: ${err}`);
+    } finally {
+      setDeleteConfirm(null);
     }
   };
 
@@ -245,7 +255,7 @@ export const TemplatesHome: React.FC = () => {
               borderRadius: radius.full,
               fontSize: font.size.sm,
               fontWeight: col.id === activeCollectionId ? font.weight.semibold : font.weight.normal,
-              background: col.id === activeCollectionId ? `${colors.accent.blue}22` : 'transparent',
+              background: col.id === activeCollectionId ? `${colors.accent.blue}22` : 'rgba(35, 39, 56, 0.85)',
               color: col.id === activeCollectionId ? colors.accent.blue : colors.text.secondary,
               border: `1px solid ${col.id === activeCollectionId ? colors.accent.blue : colors.border.default}`,
               transition: `all ${transition.fast}`,
@@ -261,6 +271,7 @@ export const TemplatesHome: React.FC = () => {
             borderRadius: radius.full,
             fontSize: font.size.sm,
             color: colors.text.muted,
+            background: 'rgba(35, 39, 56, 0.85)',
             border: `1px dashed ${colors.border.default}`,
           }}
         >
@@ -394,7 +405,8 @@ export const TemplatesHome: React.FC = () => {
                   key={cat.id}
                   onClick={() => { setCategoryFilter(cat.id); setListMode('flat'); }}
                   style={{
-                    background: colors.bg.surface,
+                    background: 'rgba(35, 39, 56, 0.72)',
+                    backdropFilter: 'blur(8px)',
                     border: `1px solid ${colors.border.subtle}`,
                     borderRadius: radius.lg,
                     padding: spacing.xl,
@@ -498,6 +510,18 @@ export const TemplatesHome: React.FC = () => {
           onClose={() => setShowCreateDialog(false)}
         />
       )}
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        isOpen={deleteConfirm !== null}
+        title="Delete Template"
+        message={`Are you sure you want to delete "${deleteConfirm?.name}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="danger"
+        onConfirm={confirmDeleteTemplate}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </div>
   );
 };
@@ -547,8 +571,20 @@ const TemplateRow: React.FC<{
 
       <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flexShrink: 0 }}>
         <Badge>{tpl.category}</Badge>
-        <span style={{ fontSize: font.size.xs, color: colors.text.muted }}>v{tpl.version}</span>
-        <span style={{ fontSize: font.size.xs, color: colors.text.muted }}>
+        <span style={{
+          fontSize: font.size.xs,
+          color: colors.text.muted,
+          background: 'rgba(35, 39, 56, 0.85)',
+          padding: `1px ${spacing.sm}`,
+          borderRadius: radius.full,
+        }}>v{tpl.version}</span>
+        <span style={{
+          fontSize: font.size.xs,
+          color: colors.text.muted,
+          background: 'rgba(35, 39, 56, 0.85)',
+          padding: `1px ${spacing.sm}`,
+          borderRadius: radius.full,
+        }}>
           {tpl.useCount} uses
         </span>
         <button

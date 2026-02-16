@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Download, FolderOpen, Globe } from 'lucide-react';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { colors, spacing, font, radius, transition } from '../../ui/theme';
-import { Button } from '../../ui/components';
+import { Button, Input } from '../../ui/components';
 import { useAppStore } from '../../state/appStore';
 import * as hubSvc from '../../services/templateHubService';
 import * as migrationSvc from '../../services/migrationService';
@@ -35,6 +35,7 @@ export const TemplateImportDialog: React.FC<TemplateImportDialogProps> = ({
   const [hubItems, setHubItems] = useState<HubItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [importVersion, setImportVersion] = useState(DEFAULT_VERSION);
 
   useEffect(() => {
     if (source === 'hub') {
@@ -82,7 +83,7 @@ export const TemplateImportDialog: React.FC<TemplateImportDialogProps> = ({
           lastUsedAt: null,
           useCount: 0,
           source: { type: 'github' as const, repo: 'Lesterhr/LHR-CopilotTemplateHub', path: item.path, sha: item.sha },
-          version: DEFAULT_VERSION,
+          version: importVersion,
           filename: item.name,
           content,
         };
@@ -182,6 +183,16 @@ export const TemplateImportDialog: React.FC<TemplateImportDialogProps> = ({
               {tab.icon} {tab.label}
             </button>
           ))}
+        </div>
+
+        {/* Version input */}
+        <div style={{ padding: `${spacing.md} ${spacing.xl}`, borderBottom: `1px solid ${colors.border.subtle}` }}>
+          <Input 
+            label="Import Version" 
+            value={importVersion} 
+            onChange={(e) => setImportVersion(e.target.value)} 
+            placeholder="e.g., 1.0.0, 2.0.0"
+          />
         </div>
 
         {/* Body */}

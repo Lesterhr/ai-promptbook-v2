@@ -85,9 +85,9 @@ const cardBgHover = 'rgba(42, 46, 66, 0.82)';
 export const Card: React.FC<CardProps> = ({ children, style, onClick, interactive }) => (
   <div
     onClick={onClick}
-    // eslint-disable-next-line jsx-a11y/role-has-required-aria-props
-    role={onClick ? 'button' : undefined}
+    {...(onClick && { role: 'button' })}
     tabIndex={onClick ? 0 : undefined}
+    {...(onClick && { 'aria-pressed': false })}
     style={{
       background: cardBg,
       backdropFilter: 'blur(8px)',

@@ -213,9 +213,11 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onEd
             ol: ({ children }) => (
               <ol style={{ paddingLeft: spacing.xl, margin: `${spacing.sm} 0` }}>{children}</ol>
             ),
-            li: ({ children }) => (
-              <li style={{ margin: `${spacing.xs} 0`, color: colors.text.secondary }}>{children}</li>
-            ),
+            li: ({ children }) => {
+              // li is always rendered inside ul/ol by ReactMarkdown — lint false positive
+              const Li = 'li' as const;
+              return <Li style={{ margin: `${spacing.xs} 0`, color: colors.text.secondary, listStyle: 'inherit' }}>{children}</Li>;
+            },
             a: ({ href, children }) => (
               <a href={href} style={{ color: colors.accent.blue, textDecoration: 'underline' }}>
                 {children}

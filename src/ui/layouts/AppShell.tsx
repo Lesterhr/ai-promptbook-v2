@@ -142,7 +142,7 @@ export const AppShell: React.FC = () => {
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
-            opacity: 0.50,
+            opacity: 0.90,
             pointerEvents: 'none',
             zIndex: 0,
           }}

@@ -154,7 +154,7 @@ export const TemplateImportDialog: React.FC<TemplateImportDialogProps> = ({
           <h3 style={{ fontSize: font.size.xl, fontWeight: font.weight.bold, color: colors.text.primary }}>
             Import Templates
           </h3>
-          <button onClick={onClose} style={{ color: colors.text.muted }}>
+          <button onClick={onClose} aria-label="Close" style={{ color: colors.text.muted }}>
             <X size={20} />
           </button>
         </div>

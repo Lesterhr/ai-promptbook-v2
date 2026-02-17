@@ -271,7 +271,7 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({ title, subtitle, a
         {title}
       </h2>
       {subtitle && (
-        <p style={{ fontSize: font.size.md, color: colors.text.secondary, marginTop: spacing.xs }}>{subtitle}</p>
+        <p style={{ fontSize: font.size.md, color: '#475569', marginTop: spacing.xs }}>{subtitle}</p>
       )}
     </div>
     {action}

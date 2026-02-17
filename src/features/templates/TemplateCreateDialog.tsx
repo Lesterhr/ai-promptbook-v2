@@ -129,7 +129,7 @@ export const TemplateCreateDialog: React.FC<TemplateCreateDialogProps> = ({
           <h3 style={{ fontSize: font.size.xl, fontWeight: font.weight.bold, color: colors.text.primary, margin: 0 }}>
             {showConfig ? (isBlank ? 'New Blank Template' : `Create ${selectedDiscipline?.title}`) : 'New Template'}
           </h3>
-          <button onClick={onClose} style={{ color: colors.text.muted, padding: spacing.xs, display: 'flex' }}>
+          <button onClick={onClose} aria-label="Close" style={{ color: colors.text.muted, padding: spacing.xs, display: 'flex' }}>
             <X size={20} />
           </button>
         </div>

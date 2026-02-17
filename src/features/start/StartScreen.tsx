@@ -77,7 +77,7 @@ export const StartScreen: React.FC = () => {
             AI Promptbook
           </h1>
         </div>
-        <p style={{ fontSize: font.size.lg, color: colors.text.secondary, maxWidth: 600 }}>
+        <p style={{ fontSize: font.size.lg, color: '#475569', maxWidth: 600 }}>
           Your workspace for agentic engineering — manage agent instructions, system prompts,
           and project templates in one place.
         </p>

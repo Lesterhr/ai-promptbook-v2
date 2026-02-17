@@ -358,6 +358,7 @@ export const HistoryManagement: React.FC = () => {
                           variant="danger"
                           size="sm"
                           icon={<Trash2 size={12} />}
+                          aria-label="Delete version"
                           onClick={async () => {
                             await storage.deleteArchivedVersions(group.collectionPath, group.templateId, [v.filename]);
                             showToast(`Deleted v${v.version}`);

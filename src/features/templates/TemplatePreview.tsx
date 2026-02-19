@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { ArrowLeft, Pencil, Clock, Hash, Tag, Download } from 'lucide-react';
 import { save as saveDialog } from '@tauri-apps/plugin-dialog';
 import { colors, spacing, font, radius } from '../../ui/theme';
-import { Button, Badge } from '../../ui/components';
+import { Button, Badge, RatingControl } from '../../ui/components';
 import type { Template } from '../../domain';
 import * as storage from '../../services/storageService';
 import { useAppStore } from '../../state/appStore';
@@ -13,9 +13,10 @@ interface TemplatePreviewProps {
   template: Template;
   onEdit: () => void;
   onBack: () => void;
+  onRate: (rating: number | null) => void;
 }
 
-export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onEdit, onBack }) => {
+export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onEdit, onBack, onRate }) => {
   const { showToast } = useAppStore();
 
   const handleExport = async () => {
@@ -134,6 +135,19 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onEd
             ))}
           </div>
         )}
+      </div>
+
+      {/* Rating */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: spacing.md,
+          marginBottom: spacing.lg,
+        }}
+      >
+        <span style={{ fontSize: font.size.sm, color: colors.text.muted }}>Rating</span>
+        <RatingControl size="md" value={template.rating} onChange={onRate} />
       </div>
 
       {template.description && (

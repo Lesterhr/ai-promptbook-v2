@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { colors, radius, spacing, font, transition } from '../theme';
 
 /* ───── Button ───── */
@@ -372,6 +372,107 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           </Button>
         </div>
       </div>
+    </div>
+  );
+};
+
+/* ───── RatingControl ───── */
+
+function ratingColor(v: number): string {
+  if (v <= 3) return colors.accent.amber;
+  if (v <= 7) return colors.accent.blue;
+  return colors.accent.green;
+}
+
+export interface RatingControlProps {
+  /** Current rating 1–10, or null/undefined for unrated */
+  value: number | null | undefined;
+  /** Called when the user clicks a segment. Passes null when deselecting. */
+  onChange: (rating: number | null) => void;
+  /** 'sm' = compact inline (list rows), 'md' = full (preview/editor) */
+  size?: 'sm' | 'md';
+  readOnly?: boolean;
+}
+
+export const RatingControl: React.FC<RatingControlProps> = ({
+  value,
+  onChange,
+  size = 'md',
+  readOnly = false,
+}) => {
+  const current = value ?? null;
+  const [hoverValue, setHoverValue] = useState<number | null>(null);
+  const displayValue = hoverValue ?? current;
+  const isSm = size === 'sm';
+  const segW = isSm ? 14 : 22;
+  const segH = isSm ? 8 : 16;
+  const segGap = isSm ? 2 : 3;
+
+  return (
+    <div
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: isSm ? spacing.xs : spacing.sm,
+        userSelect: 'none',
+      }}
+      onMouseLeave={() => setHoverValue(null)}
+    >
+      <div style={{ display: 'flex', gap: segGap }}>
+        {Array.from({ length: 10 }, (_, i) => i + 1).map((seg) => {
+          const filled = displayValue !== null && seg <= displayValue;
+          const base = ratingColor(seg);
+          return (
+            <button
+              key={seg}
+              type="button"
+              disabled={readOnly}
+              onClick={() => !readOnly && onChange(current === seg ? null : seg)}
+              onMouseEnter={() => !readOnly && setHoverValue(seg)}
+              title={current === seg ? `Rated ${seg}/10 – click to remove` : `Rate ${seg}/10`}
+              style={{
+                width: segW,
+                height: segH,
+                borderRadius: radius.sm,
+                border: 'none',
+                background: filled ? base : `${base}28`,
+                cursor: readOnly ? 'default' : 'pointer',
+                transition: `background ${transition.fast}, transform ${transition.fast}`,
+                transform: hoverValue === seg && !readOnly ? 'scaleY(1.3)' : 'scaleY(1)',
+                padding: 0,
+                flexShrink: 0,
+              }}
+            />
+          );
+        })}
+      </div>
+      {isSm ? (
+        current !== null && (
+          <span
+            style={{
+              fontSize: font.size.xs,
+              color: ratingColor(current),
+              fontWeight: font.weight.medium,
+              lineHeight: 1,
+            }}
+          >
+            {current}
+          </span>
+        )
+      ) : (
+        <span
+          style={{
+            fontSize: font.size.sm,
+            color: displayValue !== null ? ratingColor(displayValue) : colors.text.muted,
+            fontWeight: font.weight.medium,
+            minWidth: 44,
+            textAlign: 'right',
+            lineHeight: 1,
+          }}
+        >
+          {displayValue !== null ? `${displayValue}/10` : 'Unrated'}
+        </span>
+      )}
     </div>
   );
 };

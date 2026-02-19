@@ -30,6 +30,7 @@ interface AppState {
   setTemplates: (tpls: TemplateMetadata[]) => void;
   activeTemplate: Template | null;
   setActiveTemplate: (tpl: Template | null) => void;
+  updateTemplateMetadata: (id: string, patch: Partial<TemplateMetadata>) => void;
 
   /* ── UI ── */
   sidebarCollapsed: boolean;
@@ -59,6 +60,14 @@ export const useAppStore = create<AppState>((set) => ({
   setTemplates: (templates) => set({ templates }),
   activeTemplate: null,
   setActiveTemplate: (activeTemplate) => set({ activeTemplate }),
+  updateTemplateMetadata: (id, patch) =>
+    set((state) => ({
+      templates: state.templates.map((t) => t.id === id ? { ...t, ...patch } : t),
+      activeTemplate:
+        state.activeTemplate?.id === id
+          ? { ...state.activeTemplate, ...patch }
+          : state.activeTemplate,
+    })),
 
   /* UI */
   sidebarCollapsed: false,

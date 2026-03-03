@@ -34,6 +34,7 @@ const CATEGORY_FOLDER: Record<TemplateCategory, string> = {
   workflow: '.github/workflows',
   snippet: '.prompts',
   other: '',
+  'agent-instruction': '.agents',
 };
 
 export const RepoCreator: React.FC = () => {

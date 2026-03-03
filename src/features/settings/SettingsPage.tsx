@@ -1,19 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, FolderOpen, Plus, Trash2, Key, Clock } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Eye, EyeOff, FolderOpen, Plus, Trash2, Key, Clock, Shield } from 'lucide-react';
 import { colors, spacing, font, radius, transition } from '../../ui/theme';
-import { Button, Card, Input, SectionHeader } from '../../ui/components';
+import { Button, Card, Input, Select, SectionHeader } from '../../ui/components';
 import { useAppStore } from '../../state/appStore';
 import * as storage from '../../services/storageService';
 import type { SavedToken } from '../../services/storageService';
 import { encryptToken, decryptToken } from '../../services/cryptoService';
 import { getAppDataDir } from '../../services/pathService';
 import { uuid, now } from '../../domain';
+import type { ModelCredential, ModelProvider } from '../../domain';
+import { PROVIDER_LABELS, PROVIDER_COLORS, loadCredentials, saveCredential, deleteCredential } from '../../services/credentialService';
 import { HistoryManagement } from './HistoryManagement';
 
-type SettingsTab = 'general' | 'history';
+type SettingsTab = 'general' | 'history' | 'credentials';
 
 export const SettingsPage: React.FC = () => {
-  const { savedTokens, setSavedTokens, setGithubToken, setActiveTokenId, showToast } = useAppStore();
+  const { savedTokens, setSavedTokens, setGithubToken, setActiveTokenId, showToast, modelCredentials, setModelCredentials } = useAppStore();
   const [appDir, setAppDir] = useState('');
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
 
@@ -27,10 +29,27 @@ export const SettingsPage: React.FC = () => {
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
   const [revealedValues, setRevealedValues] = useState<Record<string, string>>({});
 
+  // Credential form
+  const [credLabel, setCredLabel] = useState('');
+  const [credProvider, setCredProvider] = useState<ModelProvider>('google-ai-studio');
+  const [credApiKey, setCredApiKey] = useState('');
+  const [showCredKey, setShowCredKey] = useState(false);
+  const [savingCred, setSavingCred] = useState(false);
+
+  const refreshCredentials = useCallback(async () => {
+    try {
+      const creds = await loadCredentials();
+      setModelCredentials(creds);
+    } catch (err) {
+      showToast(`Failed to load credentials: ${err}`);
+    }
+  }, [setModelCredentials, showToast]);
+
   useEffect(() => {
     getAppDataDir().then(setAppDir).catch(() => {});
     loadTokens();
-  }, []);
+    refreshCredentials();
+  }, [refreshCredentials]);
 
   const loadTokens = async () => {
     try {
@@ -154,6 +173,7 @@ export const SettingsPage: React.FC = () => {
       >
         {([
           { id: 'general' as SettingsTab, label: 'General', icon: <Key size={16} /> },
+          { id: 'credentials' as SettingsTab, label: 'LLM Credentials', icon: <Shield size={16} /> },
           { id: 'history' as SettingsTab, label: 'Version History', icon: <Clock size={16} /> },
         ]).map((tab) => (
           <button
@@ -358,7 +378,217 @@ export const SettingsPage: React.FC = () => {
         </>
       )}
 
+      {activeTab === 'credentials' && (
+        <CredentialsTab
+          credentials={modelCredentials}
+          showToast={showToast}
+          onSave={async (label, provider, apiKey) => {
+            setSavingCred(true);
+            try {
+              await saveCredential(label, provider, apiKey);
+              await refreshCredentials();
+              setCredLabel('');
+              setCredApiKey('');
+              setShowCredKey(false);
+              showToast(`Credential "${label}" saved`);
+            } catch (err) {
+              showToast(`Save failed: ${err}`);
+            } finally {
+              setSavingCred(false);
+            }
+          }}
+          onDelete={async (id) => {
+            try {
+              await deleteCredential(id);
+              await refreshCredentials();
+              showToast('Credential removed');
+            } catch (err) {
+              showToast(`Delete failed: ${err}`);
+            }
+          }}
+          credLabel={credLabel}
+          setCredLabel={setCredLabel}
+          credProvider={credProvider}
+          setCredProvider={setCredProvider}
+          credApiKey={credApiKey}
+          setCredApiKey={setCredApiKey}
+          showCredKey={showCredKey}
+          setShowCredKey={setShowCredKey}
+          savingCred={savingCred}
+        />
+      )}
+
       {activeTab === 'history' && <HistoryManagement />}
     </div>
   );
 };
+
+/* ───── CredentialsTab ───── */
+
+interface CredentialsTabProps {
+  credentials: ModelCredential[];
+  showToast: (msg: string) => void;
+  onSave: (label: string, provider: ModelProvider, apiKey: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+  credLabel: string;
+  setCredLabel: (v: string) => void;
+  credProvider: ModelProvider;
+  setCredProvider: (v: ModelProvider) => void;
+  credApiKey: string;
+  setCredApiKey: (v: string) => void;
+  showCredKey: boolean;
+  setShowCredKey: (v: boolean) => void;
+  savingCred: boolean;
+}
+
+const PROVIDER_OPTIONS: { value: ModelProvider; label: string }[] = [
+  { value: 'google-ai-studio', label: 'Google AI Studio' },
+  { value: 'vertex-ai', label: 'Vertex AI' },
+  { value: 'anthropic', label: 'Anthropic' },
+  { value: 'openai', label: 'OpenAI' },
+  { value: 'ollama', label: 'Ollama (Local)' },
+];
+
+const CredentialsTab: React.FC<CredentialsTabProps> = ({
+  credentials,
+  onSave,
+  onDelete,
+  credLabel,
+  setCredLabel,
+  credProvider,
+  setCredProvider,
+  credApiKey,
+  setCredApiKey,
+  showCredKey,
+  setShowCredKey,
+  savingCred,
+}) => (
+  <>
+    <Card style={{ marginBottom: spacing.xl }}>
+      <h3
+        style={{
+          fontSize: font.size.lg,
+          fontWeight: font.weight.semibold,
+          color: colors.text.primary,
+          marginBottom: spacing.lg,
+          display: 'flex',
+          alignItems: 'center',
+          gap: spacing.sm,
+        }}
+      >
+        <Shield size={18} />
+        LLM Provider Credentials
+      </h3>
+      <p style={{ fontSize: font.size.sm, color: colors.text.muted, marginBottom: spacing.lg }}>
+        Manage API keys for LLM providers. Credentials are encrypted with AES-256-GCM and referenced by ID in agent workflows.
+      </p>
+
+      {/* Existing credentials list */}
+      {credentials.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm, marginBottom: spacing.xl }}>
+          {credentials.map((c) => {
+            const color = PROVIDER_COLORS[c.provider] ?? colors.accent.blue;
+            return (
+              <div
+                key={c.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: spacing.md,
+                  padding: `${spacing.sm} ${spacing.lg}`,
+                  background: colors.bg.tertiary,
+                  border: `1px solid ${colors.border.default}`,
+                  borderRadius: radius.md,
+                  transition: `all ${transition.fast}`,
+                }}
+              >
+                <span
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: color,
+                    flexShrink: 0,
+                  }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: font.size.md, fontWeight: font.weight.medium, color: colors.text.primary }}>
+                    {c.label}
+                  </div>
+                  <div style={{ fontSize: font.size.xs, color: colors.text.muted }}>
+                    {PROVIDER_LABELS[c.provider]} · Added {new Date(c.createdAt).toLocaleDateString()}
+                  </div>
+                </div>
+                <button
+                  onClick={() => onDelete(c.id)}
+                  style={{ color: colors.accent.red, padding: spacing.xs, background: 'none', border: 'none', cursor: 'pointer' }}
+                  title="Delete credential"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Add new credential */}
+      <div
+        style={{
+          padding: spacing.lg,
+          background: colors.bg.primary,
+          borderRadius: radius.md,
+          border: `1px dashed ${colors.border.default}`,
+        }}
+      >
+        <div style={{ fontSize: font.size.sm, color: colors.text.secondary, fontWeight: font.weight.medium, marginBottom: spacing.md }}>
+          Add a new credential
+        </div>
+        <div style={{ display: 'flex', gap: spacing.md, marginBottom: spacing.md, flexWrap: 'wrap' }}>
+          <div style={{ width: 160 }}>
+            <Input
+              label="Label"
+              value={credLabel}
+              onChange={(e) => setCredLabel(e.target.value)}
+              placeholder="e.g. My API Key"
+            />
+          </div>
+          <div style={{ width: 180 }}>
+            <Select
+              label="Provider"
+              options={PROVIDER_OPTIONS}
+              value={credProvider}
+              onChange={(e) => setCredProvider(e.target.value as ModelProvider)}
+            />
+          </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <Input
+              label="API Key"
+              type={showCredKey ? 'text' : 'password'}
+              value={credApiKey}
+              onChange={(e) => setCredApiKey(e.target.value)}
+              placeholder="sk-… or AIza…"
+            />
+          </div>
+          <button
+            onClick={() => setShowCredKey(!showCredKey)}
+            style={{ color: colors.text.muted, alignSelf: 'flex-end', marginBottom: 4, background: 'none', border: 'none', cursor: 'pointer' }}
+            title={showCredKey ? 'Hide' : 'Show'}
+          >
+            {showCredKey ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Button
+            onClick={() => onSave(credLabel.trim() || 'Untitled', credProvider, credApiKey.trim())}
+            disabled={savingCred || !credApiKey.trim()}
+            icon={<Plus size={16} />}
+            size="sm"
+          >
+            {savingCred ? 'Encrypting…' : 'Save Credential'}
+          </Button>
+        </div>
+      </div>
+    </Card>
+  </>
+);

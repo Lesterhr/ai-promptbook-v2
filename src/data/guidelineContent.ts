@@ -567,6 +567,68 @@ You help users with [specific use cases].
       ],
     },
   },
+
+  /* ── Google ADK Agent ── */
+  {
+    id: 'adk-agent',
+    title: 'Google ADK Agent',
+    toolName: 'Google ADK (Agent Development Kit)',
+    defaultFilename: 'agent.ts',
+    category: 'agent-instruction',
+    shortDescription: 'Agent instructions for Google ADK-JS multi-agent workflows. Defines LLM, Sequential, Parallel, and Loop agents.',
+    placement: 'Created via the Agent Developer mode and exported as a TypeScript project.',
+    color: '#f97316',
+    scaffoldContent: `# [Agent Name] — Instruction
+
+## Role
+You are [role description].
+
+## Objective
+[What the agent should accomplish]
+
+## Context
+[Background information and domain knowledge]
+
+## Process
+1. [Step 1]
+2. [Step 2]
+3. [Step 3]
+
+## Constraints
+- [Constraint 1]
+- [Constraint 2]
+
+## Output Format
+[How the response should be structured]
+`,
+    guide: {
+      overview:
+        'Google ADK (Agent Development Kit) is a framework for building multi-agent AI systems. ADK-JS enables TypeScript-based agent workflows with LlmAgent, SequentialAgent, ParallelAgent, and LoopAgent. The AI Promptbook Agent Developer mode generates ready-to-run ADK projects from a visual builder.',
+      keyPoints: [
+        'LlmAgent: Core agent powered by an LLM with instructions, tools, and sub-agents',
+        'SequentialAgent: Runs sub-agents one after another, passing context through',
+        'ParallelAgent: Runs sub-agents simultaneously for fan-out workloads',
+        'LoopAgent: Repeats sub-agents until a condition is met (max iterations for safety)',
+        'Tools: Built-in (google_search, code_execution) or custom TypeScript functions',
+        'Credentials are managed centrally in Settings → LLM Credentials',
+        'Generated projects include agent.ts, package.json, tsconfig.json, .env, and README.md',
+        'Run with: npx @google/adk web',
+      ],
+      structureDescription:
+        'An ADK project consists of an agent.ts file that defines agent hierarchies using ADK classes. Each LlmAgent has a name, model, instruction, and optional tools/sub-agents. Workflow agents (Sequential, Parallel, Loop) orchestrate sub-agents without their own LLM. The project exports the root agent.',
+      bestPractices: [
+        'Keep agent instructions focused — each agent should have a single, clear responsibility',
+        'Use Sequential pipelines for multi-step processing (e.g., research → synthesize → format)',
+        'Use Parallel agents for independent tasks that can be combined later',
+        'Set outputKey on agents whose results need to be referenced by downstream agents',
+        'Always set maxIterations on Loop agents to prevent infinite loops',
+        'Use built-in tools (google_search, code_execution) before writing custom ones',
+        'Store API keys in Settings → LLM Credentials, never hardcode them',
+        'Test workflows with a simple 2-agent setup before scaling to complex pipelines',
+        'Save reusable agent instructions as templates for future projects',
+      ],
+    },
+  },
 ];
 
 /* ────────── Prompt Mode Triggers ────────── */
@@ -765,5 +827,11 @@ export const categoryInfoMap: Record<string, CategoryInfo> = {
     label: 'Other',
     description: 'Templates that don\'t fit other categories',
     color: '#64748b',
+  },
+  'agent-instruction': {
+    id: 'agent-instruction',
+    label: 'Agent Instructions (ADK)',
+    description: 'Instructions for Google ADK agent workflows',
+    color: '#f97316',
   },
 };

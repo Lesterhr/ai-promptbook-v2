@@ -6,3 +6,6 @@ export * as githubService from './githubService';
 export * as templateHubService from './templateHubService';
 export * as migrationService from './migrationService';
 export * as cryptoService from './cryptoService';
+export * as agentService from './agentService';
+export * as credentialService from './credentialService';
+export * as adkCodegenService from './adkCodegenService';

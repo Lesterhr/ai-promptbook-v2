@@ -53,6 +53,7 @@ export function suggestNextVersions(currentVersion: string): string[] {
 /** Derive a default category from a filename */
 export function inferCategory(filename: string): import('./template').TemplateCategory {
   const lower = filename.toLowerCase();
+  if (lower.includes('.agent.') || lower.includes('agent-instruction')) return 'agent-instruction';
   if (lower.includes('instruction') || lower.includes('copilot')) return 'instruction';
   if (lower.includes('prompt') || lower.includes('system')) return 'system-prompt';
   if (lower.includes('readme')) return 'readme';

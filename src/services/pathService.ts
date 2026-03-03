@@ -35,3 +35,13 @@ export async function getCacheDir(): Promise<string> {
   const appDir = await getAppDataDir();
   return join(appDir, 'cache');
 }
+
+export async function getAgentsDir(): Promise<string> {
+  const appDir = await getAppDataDir();
+  return join(appDir, 'agents');
+}
+
+export async function getAgentProjectDir(projectId: string): Promise<string> {
+  const agentsDir = await getAgentsDir();
+  return join(agentsDir, projectId);
+}

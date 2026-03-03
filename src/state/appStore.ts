@@ -7,7 +7,7 @@
  */
 
 import { create } from 'zustand';
-import type { Collection, Template, TemplateMetadata } from '../domain';
+import type { Collection, Template, TemplateMetadata, AgentProjectMeta, AgentProject, ModelCredential } from '../domain';
 import type { SavedToken } from '../services/storageService';
 
 interface AppState {
@@ -31,6 +31,14 @@ interface AppState {
   activeTemplate: Template | null;
   setActiveTemplate: (tpl: Template | null) => void;
   updateTemplateMetadata: (id: string, patch: Partial<TemplateMetadata>) => void;
+
+  /* ── Agent Developer ── */
+  agentProjects: AgentProjectMeta[];
+  setAgentProjects: (projects: AgentProjectMeta[]) => void;
+  activeAgentProject: AgentProject | null;
+  setActiveAgentProject: (project: AgentProject | null) => void;
+  modelCredentials: ModelCredential[];
+  setModelCredentials: (creds: ModelCredential[]) => void;
 
   /* ── UI ── */
   sidebarCollapsed: boolean;
@@ -68,6 +76,14 @@ export const useAppStore = create<AppState>((set) => ({
           ? { ...state.activeTemplate, ...patch }
           : state.activeTemplate,
     })),
+
+  /* Agent Developer */
+  agentProjects: [],
+  setAgentProjects: (agentProjects) => set({ agentProjects }),
+  activeAgentProject: null,
+  setActiveAgentProject: (activeAgentProject) => set({ activeAgentProject }),
+  modelCredentials: [],
+  setModelCredentials: (modelCredentials) => set({ modelCredentials }),
 
   /* UI */
   sidebarCollapsed: false,

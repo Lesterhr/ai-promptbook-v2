@@ -44,6 +44,8 @@ export interface AppConfig {
   /** @deprecated kept for migration – use savedTokens instead */
   githubToken?: string | null;
   savedTokens?: SavedToken[];
+  /** Encrypted LLM provider credentials (n8n-style) */
+  modelCredentials?: import('../domain').ModelCredential[];
   [key: string]: unknown;
 }
 

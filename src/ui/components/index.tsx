@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { colors, radius, spacing, font, transition } from '../theme';
 
 /* ───── Button ───── */
@@ -474,5 +474,319 @@ export const RatingControl: React.FC<RatingControlProps> = ({
         </span>
       )}
     </div>
+  );
+};
+
+/* ───── CodeBlock ───── */
+
+interface CodeBlockProps {
+  code: string;
+  language?: string;
+  maxHeight?: number;
+}
+
+export const CodeBlock: React.FC<CodeBlockProps> = ({ code, language, maxHeight = 400 }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div style={{ position: 'relative', borderRadius: radius.md, overflow: 'hidden' }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: `${spacing.xs} ${spacing.md}`,
+        background: colors.bg.primary,
+        borderBottom: `1px solid ${colors.border.subtle}`,
+      }}>
+        {language && (
+          <span style={{ fontSize: font.size.xs, color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {language}
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={handleCopy}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: copied ? colors.accent.green : colors.text.muted,
+            cursor: 'pointer',
+            fontSize: font.size.xs,
+            padding: `${spacing.xs} ${spacing.sm}`,
+          }}
+        >
+          {copied ? 'Copied!' : 'Copy'}
+        </button>
+      </div>
+      <pre style={{
+        margin: 0,
+        padding: spacing.md,
+        background: colors.bg.primary,
+        color: colors.text.primary,
+        fontFamily: font.mono,
+        fontSize: font.size.sm,
+        lineHeight: 1.6,
+        overflow: 'auto',
+        maxHeight,
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+      }}>
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+};
+
+/* ───── TabBar ───── */
+
+interface TabItem {
+  id: string;
+  label: string;
+  icon?: React.ReactNode;
+}
+
+interface TabBarProps {
+  tabs: TabItem[];
+  activeTab: string;
+  onTabChange: (id: string) => void;
+}
+
+export const TabBar: React.FC<TabBarProps> = ({ tabs, activeTab, onTabChange }) => (
+  <div style={{
+    display: 'flex',
+    gap: spacing.xs,
+    borderBottom: `1px solid ${colors.border.subtle}`,
+    paddingBottom: 0,
+  }}>
+    {tabs.map((tab) => {
+      const isActive = tab.id === activeTab;
+      return (
+        <button
+          key={tab.id}
+          type="button"
+          onClick={() => onTabChange(tab.id)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: spacing.xs,
+            padding: `${spacing.sm} ${spacing.md}`,
+            background: 'none',
+            border: 'none',
+            borderBottom: `2px solid ${isActive ? colors.accent.blue : 'transparent'}`,
+            color: isActive ? colors.text.primary : colors.text.secondary,
+            fontSize: font.size.sm,
+            fontWeight: isActive ? font.weight.semibold : font.weight.normal,
+            cursor: 'pointer',
+            transition: `color ${transition.fast}, border-color ${transition.fast}`,
+            marginBottom: -1,
+          }}
+          onMouseEnter={(e) => {
+            if (!isActive) e.currentTarget.style.color = colors.text.primary;
+          }}
+          onMouseLeave={(e) => {
+            if (!isActive) e.currentTarget.style.color = colors.text.secondary;
+          }}
+        >
+          {tab.icon}
+          {tab.label}
+        </button>
+      );
+    })}
+  </div>
+);
+
+/* ───── CollapsibleSection ───── */
+
+interface CollapsibleSectionProps {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+  badge?: React.ReactNode;
+}
+
+export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
+  title,
+  defaultOpen = true,
+  children,
+  badge,
+}) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [contentHeight, setContentHeight] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (contentRef.current) {
+      setContentHeight(contentRef.current.scrollHeight);
+    }
+  }, [children]);
+
+  return (
+    <div style={{ borderRadius: radius.md, border: `1px solid ${colors.border.subtle}`, overflow: 'hidden' }}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          display: 'flex',
+          width: '100%',
+          alignItems: 'center',
+          gap: spacing.sm,
+          padding: `${spacing.sm} ${spacing.md}`,
+          background: colors.bg.secondary,
+          border: 'none',
+          color: colors.text.primary,
+          fontSize: font.size.sm,
+          fontWeight: font.weight.semibold,
+          cursor: 'pointer',
+          textAlign: 'left',
+        }}
+      >
+        <span style={{
+          transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+          transition: `transform ${transition.fast}`,
+          display: 'inline-block',
+          fontSize: font.size.xs,
+        }}>
+          ▶
+        </span>
+        <span style={{ flex: 1 }}>{title}</span>
+        {badge}
+      </button>
+      <div
+        ref={contentRef}
+        style={{
+          maxHeight: isOpen ? (contentHeight ?? 'none') : 0,
+          overflow: 'hidden',
+          transition: `max-height ${transition.normal}`,
+        }}
+      >
+        <div style={{ padding: spacing.md }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ───── ChipSelect ───── */
+
+interface ChipOption {
+  value: string;
+  label: string;
+  color?: string;
+}
+
+interface ChipSelectProps {
+  options: ChipOption[];
+  selected: string[];
+  onChange: (selected: string[]) => void;
+  multi?: boolean;
+}
+
+export const ChipSelect: React.FC<ChipSelectProps> = ({
+  options,
+  selected,
+  onChange,
+  multi = true,
+}) => (
+  <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing.xs }}>
+    {options.map((opt) => {
+      const isSelected = selected.includes(opt.value);
+      const chipColor = opt.color ?? colors.accent.blue;
+      return (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => {
+            if (multi) {
+              onChange(
+                isSelected
+                  ? selected.filter((v) => v !== opt.value)
+                  : [...selected, opt.value],
+              );
+            } else {
+              onChange(isSelected ? [] : [opt.value]);
+            }
+          }}
+          style={{
+            padding: `${spacing.xs} ${spacing.md}`,
+            borderRadius: radius.full,
+            border: `1px solid ${isSelected ? chipColor : colors.border.default}`,
+            background: isSelected ? `${chipColor}22` : 'transparent',
+            color: isSelected ? chipColor : colors.text.secondary,
+            fontSize: font.size.xs,
+            fontWeight: font.weight.medium,
+            cursor: 'pointer',
+            transition: `all ${transition.fast}`,
+          }}
+          onMouseEnter={(e) => {
+            if (!isSelected) {
+              e.currentTarget.style.borderColor = chipColor;
+              e.currentTarget.style.color = chipColor;
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!isSelected) {
+              e.currentTarget.style.borderColor = colors.border.default;
+              e.currentTarget.style.color = colors.text.secondary;
+            }
+          }}
+        >
+          {opt.label}
+        </button>
+      );
+    })}
+  </div>
+);
+
+/* ───── ModelBadge ───── */
+
+interface ModelBadgeProps {
+  modelString: string;
+  provider?: string;
+  size?: 'sm' | 'md';
+}
+
+export const ModelBadge: React.FC<ModelBadgeProps> = ({ modelString, provider, size = 'sm' }) => {
+  const providerColors: Record<string, string> = {
+    'google': colors.accent.blue,
+    'anthropic': colors.accent.amber,
+    'openai': colors.accent.green,
+    'meta': colors.accent.purple,
+    'vertex-ai': colors.accent.blue,
+  };
+  const color = (provider && providerColors[provider]) || colors.accent.blue;
+  const isSm = size === 'sm';
+
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: spacing.xs,
+      padding: isSm ? `2px ${spacing.sm}` : `${spacing.xs} ${spacing.md}`,
+      borderRadius: radius.full,
+      background: `${color}18`,
+      border: `1px solid ${color}40`,
+      color,
+      fontSize: isSm ? font.size.xs : font.size.sm,
+      fontWeight: font.weight.medium,
+      fontFamily: font.mono,
+      lineHeight: 1.4,
+      whiteSpace: 'nowrap',
+    }}>
+      <span style={{
+        width: isSm ? 6 : 8,
+        height: isSm ? 6 : 8,
+        borderRadius: '50%',
+        background: color,
+        flexShrink: 0,
+      }} />
+      {modelString}
+    </span>
   );
 };

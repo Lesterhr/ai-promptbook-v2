@@ -7,11 +7,12 @@
 
 /** Recognised resource categories */
 export type TemplateCategory =
-  | 'instruction'     // copilot-instructions / agent instructions
-  | 'system-prompt'   // reusable system prompts
-  | 'readme'          // readme templates
-  | 'workflow'        // CI / automation templates
-  | 'snippet'         // generic reusable prompt snippets
+  | 'instruction'           // copilot-instructions / agent instructions
+  | 'system-prompt'         // reusable system prompts
+  | 'readme'                // readme templates
+  | 'workflow'              // CI / automation templates
+  | 'snippet'               // generic reusable prompt snippets
+  | 'agent-instruction'     // ADK agent instructions
   | 'other';
 
 /** Source from which a template was imported */

@@ -142,6 +142,24 @@ async function saveIndex(collectionPath: string, templates: TemplateMetadata[]):
   await writeTextFile(ip, JSON.stringify(templates, null, 2));
 }
 
+/**
+ * Update only metadata fields of an existing template in the index.
+ * Does NOT touch the template content file — ideal for lightweight updates like rating.
+ */
+export async function patchTemplateMetadata(
+  collectionPath: string,
+  templateId: string,
+  patch: Partial<Omit<TemplateMetadata, 'id' | 'filename'>>,
+): Promise<TemplateMetadata> {
+  const templates = await listTemplates(collectionPath);
+  const idx = templates.findIndex((t) => t.id === templateId);
+  if (idx < 0) throw new Error(`Template "${templateId}" not found in index`);
+  const updated: TemplateMetadata = { ...templates[idx], ...patch };
+  templates[idx] = updated;
+  await saveIndex(collectionPath, templates);
+  return updated;
+}
+
 export async function readTemplate(collectionPath: string, meta: TemplateMetadata): Promise<Template> {
   const filePath = await join(collectionPath, meta.filename);
   const content = await readTextFile(filePath);

@@ -45,6 +45,8 @@ export interface TemplateMetadata {
   version: string;
   /** Filename on disk (relative to collection root) */
   filename: string;
+  /** User-assigned quality rating 1–10. null/undefined means unrated. */
+  rating?: number | null;
 }
 
 export interface Template extends TemplateMetadata {

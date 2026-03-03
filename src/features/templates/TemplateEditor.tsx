@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Save, X, Tag, Download, Copy, Clock, RotateCcw } from 'lucide-react';
 import { save as saveDialog } from '@tauri-apps/plugin-dialog';
 import { colors, spacing, font, radius, transition } from '../../ui/theme';
-import { Button, Input, Select, Badge, ConfirmDialog } from '../../ui/components';
+import { Button, Input, Select, Badge, ConfirmDialog, RatingControl } from '../../ui/components';
 import type { Template, TemplateCategory } from '../../domain';
 import { now, suggestNextVersions } from '../../domain';
 import * as storage from '../../services/storageService';
@@ -40,6 +40,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
   const [version, setVersion] = useState(suggestions[0]);
   const [versionMode, setVersionMode] = useState<'keep' | 'patch' | 'minor' | 'major' | 'custom'>('keep');
   const [content, setContent] = useState(template.content);
+  const [rating, setRating] = useState<number | null>(template.rating ?? null);
   const [saving, setSaving] = useState(false);
 
   // Version history switcher
@@ -86,6 +87,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
         .filter(Boolean),
       version: resolveVersion(),
       content,
+      rating,
       updatedAt: now(),
     };
   };
@@ -320,6 +322,20 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
             onChange={(e) => setTags(e.target.value)}
             placeholder="e.g. agent, copilot, react"
           />
+        </div>
+        <div style={{ gridColumn: '1 / -1' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+            <label
+              style={{
+                fontSize: font.size.sm,
+                color: colors.text.secondary,
+                fontWeight: font.weight.medium,
+              }}
+            >
+              Quality Rating
+            </label>
+            <RatingControl size="md" value={rating} onChange={setRating} />
+          </div>
         </div>
       </div>
 

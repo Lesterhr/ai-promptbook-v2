@@ -15,7 +15,7 @@ import {
   MoreVertical,
 } from 'lucide-react';
 import { colors, spacing, font, radius, transition } from '../../ui/theme';
-import { Button, Card, Badge, Input, SectionHeader, EmptyState, Select, ConfirmDialog } from '../../ui/components';
+import { Button, Card, Badge, Input, SectionHeader, EmptyState, Select, ConfirmDialog, RatingControl } from '../../ui/components';
 import { useAppStore } from '../../state/appStore';
 import type { TemplateMetadata } from '../../domain';
 import * as storage from '../../services/storageService';
@@ -40,6 +40,7 @@ export const TemplatesHome: React.FC = () => {
     setTemplates,
     activeTemplate,
     setActiveTemplate,
+    updateTemplateMetadata,
     githubToken,
     showToast,
   } = useAppStore();
@@ -122,6 +123,16 @@ export const TemplatesHome: React.FC = () => {
     await loadCollections();
     setActiveTemplate(tpl);
     setViewMode('editor');
+  };
+
+  const handleRateTemplate = async (templateId: string, rating: number | null) => {
+    if (!activeCollection) return;
+    try {
+      const updated = await storage.patchTemplateMetadata(activeCollection.path, templateId, { rating });
+      updateTemplateMetadata(updated.id, { rating: updated.rating });
+    } catch (err) {
+      showToast(`Rating failed: ${err}`);
+    }
   };
 
   const handleDeleteTemplate = async (id: string) => {
@@ -234,6 +245,7 @@ export const TemplatesHome: React.FC = () => {
           setViewMode('list');
           setActiveTemplate(null);
         }}
+        onRate={(rating) => handleRateTemplate(activeTemplate.id, rating)}
       />
     );
   }
@@ -491,7 +503,7 @@ export const TemplatesHome: React.FC = () => {
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
                 {templates.map((tpl) => (
-                  <TemplateRow key={tpl.id} tpl={tpl} onOpen={handleOpenTemplate} onDelete={handleDeleteTemplate} onMove={(id, name) => setMoveTarget({ templateId: id, templateName: name })} />
+                  <TemplateRow key={tpl.id} tpl={tpl} onOpen={handleOpenTemplate} onDelete={handleDeleteTemplate} onMove={(id, name) => setMoveTarget({ templateId: id, templateName: name })} onRate={handleRateTemplate} />
                 ))}
               </div>
             </>
@@ -516,7 +528,7 @@ export const TemplatesHome: React.FC = () => {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
           {filtered.map((tpl) => (
-            <TemplateRow key={tpl.id} tpl={tpl} onOpen={handleOpenTemplate} onDelete={handleDeleteTemplate} onMove={(id, name) => setMoveTarget({ templateId: id, templateName: name })} />
+            <TemplateRow key={tpl.id} tpl={tpl} onOpen={handleOpenTemplate} onDelete={handleDeleteTemplate} onMove={(id, name) => setMoveTarget({ templateId: id, templateName: name })} onRate={handleRateTemplate} />
           ))}
         </div>
       )}
@@ -637,7 +649,8 @@ const TemplateRow: React.FC<{
   onOpen: (tpl: TemplateMetadata) => void;
   onDelete: (id: string) => void;
   onMove: (id: string, name: string) => void;
-}> = ({ tpl, onOpen, onDelete, onMove }) => {
+  onRate: (id: string, rating: number | null) => void;
+}> = ({ tpl, onOpen, onDelete, onMove, onRate }) => {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
 
@@ -708,6 +721,9 @@ const TemplateRow: React.FC<{
           }}>
             {tpl.useCount} uses
           </span>
+          <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center' }}>
+            <RatingControl size="sm" value={tpl.rating} onChange={(r) => onRate(tpl.id, r)} />
+          </div>
           <button
             onClick={(e) => {
               e.stopPropagation();

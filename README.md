@@ -90,6 +90,21 @@ src-tauri/              → Backend (Rust + Tauri)
 
 ---
 
+## AI Agent Instruction Files
+
+This repository ships instruction files for all major AI coding tools so they understand the project conventions out of the box:
+
+| File | Tool | Purpose |
+|------|------|---------|
+| `.github/copilot-instructions.md` | GitHub Copilot | Custom coding standards, architecture rules, and dos/don'ts loaded automatically by Copilot |
+| `AGENTS.md` | GPT-based coding agents | Universal agent instruction file (AGENTS.md standard) |
+| `CLAUDE.md` | Claude Code (Anthropic) | XML-delimited instructions for Claude Code sessions |
+| `.cursorrules` | Cursor AI | Project-wide rules file for the Cursor editor |
+| `.cursor/rules/project.mdc` | Cursor AI | Modular glob-scoped rules file (`.mdc` format) |
+| `.clinerules` | Cline / Roo Code (VS Code) | Configuration for the Cline AI assistant |
+
+---
+
 ## Contributing
 
 Contributions are welcome! Please:

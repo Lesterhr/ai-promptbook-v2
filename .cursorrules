@@ -1,0 +1,54 @@
+# AI Promptbook v2 – Cursor Rules
+# Loaded automatically by the Cursor AI editor
+
+## Project identity
+You are working on **AI Promptbook v2** – a native desktop app for managing AI agent instructions, prompts, and project templates. Stack: React 19 + TypeScript + Vite + Tauri 2 (Rust backend).
+
+## Architecture rules
+
+### File organisation
+- `src/features/<name>/` – one folder per page/route
+- `src/ui/` – shared layout, components, theme
+- `src/services/` – Tauri IPC and async operations
+- `src/state/` – Zustand stores
+- `src/domain/` – pure types and utilities
+- `src-tauri/src/lib.rs` – Rust Tauri commands
+
+### TypeScript / React rules
+- Functional components and hooks only; no class components
+- Explicit TypeScript types on all parameters and return values; no `any`
+- Shared mutable state lives in a Zustand store, never prop-drilled
+- File I/O exclusively through `@tauri-apps/plugin-fs`; never browser storage APIs
+- GitHub tokens must always be encrypted via `src/services/cryptoService.ts`
+- Validate with `tsc --noEmit` after every significant change
+
+### Rust rules
+- All `clippy` warnings must be resolved
+- Tauri commands return `Result<T, String>`
+- Cryptographic operations stay in `src-tauri/src/lib.rs`
+
+## Common task patterns
+
+### New feature page
+```
+src/features/<name>/<Name>Page.tsx   ← main component
+src/routes.tsx                        ← add route entry
+src/ui/layouts/AppShell.tsx          ← add nav link
+```
+
+### Tauri IPC call
+```ts
+import { invoke } from '@tauri-apps/api/core';
+const data = await invoke<ReturnType>('rust_command', { arg });
+```
+
+### File read/write
+```ts
+import { readTextFile, writeTextFile, BaseDirectory } from '@tauri-apps/plugin-fs';
+```
+
+## Hard constraints
+- NEVER use localStorage / sessionStorage / indexedDB
+- NEVER expose a GitHub PAT in plain text
+- NEVER skip Tauri capability permissions in `src-tauri/capabilities/`
+- NEVER add a dependency without a clear justification in the PR description

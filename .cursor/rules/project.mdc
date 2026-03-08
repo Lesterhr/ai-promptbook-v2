@@ -1,0 +1,24 @@
+---
+description: AI Promptbook v2 – project-wide coding standards for Cursor AI
+globs: ["**/*.ts", "**/*.tsx", "**/*.rs"]
+alwaysApply: true
+---
+
+# AI Promptbook v2
+
+Native desktop app (React 19 + TypeScript + Tauri 2 / Rust) for managing AI agent instruction files, system prompts, and project templates.
+
+## Architecture
+- `src/features/` – one folder per page/route
+- `src/ui/` – shared components and layout
+- `src/services/` – all Tauri IPC calls
+- `src/state/` – Zustand global stores
+- `src/domain/` – pure types and utilities
+- `src-tauri/src/lib.rs` – Rust Tauri commands
+
+## Rules
+- Functional React components + hooks only; no `any` in TypeScript
+- File I/O via `@tauri-apps/plugin-fs`; never browser storage APIs
+- GitHub tokens must always be encrypted; use `src/services/cryptoService.ts`
+- Rust commands return `Result<T, String>`; fix all `clippy` warnings
+- Run `tsc --noEmit` to validate TypeScript before finishing

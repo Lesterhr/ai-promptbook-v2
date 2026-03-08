@@ -1,0 +1,47 @@
+# AI Promptbook v2 – Cline / Roo Code Rules
+
+## Project
+Native desktop application for managing AI agent instructions, prompts, and project templates.
+Stack: React 19 + TypeScript 5 + Vite 7 (frontend) | Rust + Tauri 2 (backend)
+
+## Working directory layout
+```
+src/
+  features/   one folder per page/route
+  ui/         shared layout, components, theme
+  services/   Tauri IPC and async operations
+  state/      Zustand global stores
+  domain/     pure TypeScript types and utilities
+src-tauri/
+  src/lib.rs  Rust Tauri commands (AES-256-GCM crypto)
+  tauri.conf.json
+  capabilities/
+```
+
+## Coding standards
+
+### TypeScript
+- Explicit types everywhere; `any` is not allowed
+- Functional components + hooks only; no class components
+- Shared state → Zustand store in `src/state/`
+- All file I/O → `@tauri-apps/plugin-fs`
+- GitHub tokens → always encrypt via `src/services/cryptoService.ts`
+- Type-check: `tsc --noEmit`
+
+### Rust
+- Resolve all `clippy` warnings
+- Command return type: `Result<T, String>`
+- Keep crypto in `src-tauri/src/lib.rs`
+
+## Useful commands
+```bash
+npm install           # install dependencies
+npm run tauri dev     # start dev environment
+tsc --noEmit          # type-check
+```
+
+## Constraints
+- Do NOT use browser storage APIs (localStorage, sessionStorage, indexedDB)
+- Do NOT expose secrets or tokens in plain text
+- Do NOT bypass Tauri capability permissions
+- Do NOT add packages without justification

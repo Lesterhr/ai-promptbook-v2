@@ -1,8 +1,8 @@
 [package]
 name = "ai-promptbook-v2"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "A native desktop app for managing AI agent instructions, prompts and project templates"
+authors = ["Lester Hrabovszky <https://github.com/Lesterhr>"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

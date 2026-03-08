@@ -84,8 +84,24 @@ When it's done, you'll see a confirmation with a link to open the project on Git
 
 ## Settings
 
-- **GitHub Token** — Your personal access token for GitHub. Needed for creating repositories and syncing collections. You can get one from [github.com/settings/tokens](https://github.com/settings/tokens). Make sure it has the **repo** permission.
-- **Data Location** — Shows where the app stores your collections and settings on your computer (usually in your home folder under `.ai-promptbook`).
+### GitHub Tokens
+
+AI Promptbook stores your GitHub personal access tokens **encrypted** on disk using AES-256-GCM, bound to your machine. You can save multiple tokens (e.g. one for work and one for personal projects) and give each a descriptive label.
+
+- **Add a token** – paste the token in the input field, give it a label, and click **Save Token**. It will appear in the saved-tokens list.
+- **Select a saved token** – click on it in the list to activate it for the current session.
+- **Delete a token** – click the trash icon next to it.
+- **Manual entry** – you can always type or paste a token directly in the Repo Creator without saving it.
+
+You can get a GitHub personal access token at [github.com/settings/tokens](https://github.com/settings/tokens). Make sure it has the **repo** permission.
+
+### History
+
+The **History** tab in Settings shows a chronological log of your recently used templates. You can clear individual entries or wipe the entire history from there.
+
+### Data Location
+
+Shows where the app stores your collections and settings on your computer (usually in your home folder under `.ai-promptbook`).
 
 ---
 

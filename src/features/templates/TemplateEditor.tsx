@@ -63,6 +63,13 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
   const [improvePrompt, setImprovePrompt] = useState('');
   const [improvedContent, setImprovedContent] = useState('');
   const [improving, setImproving] = useState(false);
+  const [improveDisciplineId, setImproveDisciplineId] = useState<string>(() => {
+    // Prioritise exact filename match, then category match for system-prompt, else first instruction
+    const byFilename = disciplines.find((d) => d.defaultFilename === template.filename);
+    if (byFilename) return byFilename.id;
+    if (template.category === 'system-prompt') return 'system-prompt';
+    return disciplines[0].id;
+  });
 
   const [showConvertDialog, setShowConvertDialog] = useState(false);
   const [convertTargetId, setConvertTargetId] = useState('');
@@ -192,9 +199,10 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
   };
 
   /** Find the discipline matching the current template's category/filename */
-  const currentDiscipline = disciplines.find((d) =>
-    d.defaultFilename === template.filename || d.category === template.category,
-  ) ?? disciplines[0];
+  const currentDiscipline =
+    disciplines.find((d) => d.defaultFilename === template.filename) ??
+    (template.category === 'system-prompt' ? disciplines.find((d) => d.id === 'system-prompt') : undefined) ??
+    disciplines[0];
 
   /** Build copilot config object */
   const copilotConfig = { enabled: true, cliPath: copilotCliPath, model: copilotModel, byok: copilotByok };
@@ -209,9 +217,12 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
   const handleImprove = async () => {
     setImproving(true);
     try {
-      const guide = currentDiscipline.guide;
+      const discipline = disciplines.find((d) => d.id === improveDisciplineId) ?? currentDiscipline;
+      const guide = discipline.guide;
       const systemMessage = `You are an expert at improving AI agent instruction files.
 Analyse the template below and improve it based on these quality criteria:
+
+Format: ${discipline.title} (${discipline.defaultFilename})
 
 Best Practices:
 - ${guide.bestPractices.join('\n- ')}
@@ -248,7 +259,6 @@ Return ONLY the complete improved file content, no explanations or code fences.`
     setImprovePrompt('');
     showToast('Improved content applied — save to persist');
   };
-
   /* ── AI: Convert Format ── */
   const handleConvert = async () => {
     const targetDiscipline = disciplines.find((d) => d.id === convertTargetId);
@@ -646,8 +656,18 @@ Return ONLY the complete converted file content, no explanations or code fences.
             {!improvedContent && (
               <>
                 <p style={{ fontSize: font.size.md, color: colors.text.secondary, marginBottom: spacing.lg }}>
-                  AI will analyse your template against best practices for <strong>{currentDiscipline.title}</strong> and generate an improved version.
+                  AI will analyse your template against the best practices for the selected format.
                 </p>
+                <div style={{ marginBottom: spacing.lg }}>
+                  <Select
+                    label="Analyse against format"
+                    options={disciplines
+                      .filter((d) => !['persona-engineering', 'xml-vs-markdown', 'negative-constraints', 'good-bad-examples', 'plan-act-verify', 'prompt-modes', 'context-economics'].includes(d.id))
+                      .map((d) => ({ value: d.id, label: `${d.title} (${d.defaultFilename})` }))}
+                    value={improveDisciplineId}
+                    onChange={(e) => setImproveDisciplineId(e.target.value)}
+                  />
+                </div>
                 <TextArea
                   label="Improvement focus (optional)"
                   placeholder="e.g. Make the persona section more specific, add missing error handling rules, improve code examples..."

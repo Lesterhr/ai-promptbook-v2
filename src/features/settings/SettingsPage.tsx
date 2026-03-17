@@ -405,6 +405,23 @@ interface CopilotSettingsProps {
   showToast: (msg: string) => void;
 }
 
+/** Well-known model identifiers — must match the Copilot CLI's accepted values exactly */
+const KNOWN_MODELS = [
+  'claude-sonnet-4.6',
+  'claude-sonnet-4.5',
+  'claude-sonnet-4',
+  'claude-haiku-4.5',
+  'claude-opus-4.6',
+  'claude-opus-4.6-fast',
+  'claude-opus-4.5',
+  'gpt-4.1',
+  'gpt-5.1',
+  'gpt-5.1-mini',
+  'gpt-5.2',
+  'gpt-5.4',
+  'gemini-3-pro-preview',
+];
+
 const CopilotSettings: React.FC<CopilotSettingsProps> = ({
   copilotAvailable, copilotVersion, copilotEnabled, copilotModel, copilotByok, copilotCliPath,
   setCopilotAvailable, setCopilotVersion, setCopilotEnabled, setCopilotModel, setCopilotByok, setCopilotCliPath,
@@ -413,8 +430,16 @@ const CopilotSettings: React.FC<CopilotSettingsProps> = ({
   const { githubToken, activeTokenId, savedTokens } = useAppStore();
   const [detecting, setDetecting] = useState(false);
   const [customPath, setCustomPath] = useState(copilotCliPath ?? '');
-  const [models, setModels] = useState<string[]>([]);
+  const [models, setModels] = useState<string[]>(KNOWN_MODELS);
   const [loadingModels, setLoadingModels] = useState(false);
+
+  // Auto-initialize model if the stored value is empty or not in the model list
+  useEffect(() => {
+    if (!copilotModel || !KNOWN_MODELS.includes(copilotModel)) {
+      handleSaveModel(KNOWN_MODELS[0]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // BYOK form state
   const [byokEnabled, setByokEnabled] = useState(copilotByok !== null);
@@ -452,13 +477,15 @@ const CopilotSettings: React.FC<CopilotSettingsProps> = ({
       const config = { enabled: copilotEnabled, cliPath: copilotCliPath, model: copilotModel, byok: copilotByok };
       const result = await listModels(config, githubToken);
       if (result.length > 0) {
-        setModels(result);
-        showToast(`Found ${result.length} models`);
+        // Merge CLI models with known models, deduplicating
+        const merged = Array.from(new Set([...KNOWN_MODELS, ...result]));
+        setModels(merged);
+        showToast(`Found ${result.length} models from CLI`);
       } else {
-        showToast('No models returned — enter model name manually');
+        showToast('No additional models from CLI — showing defaults');
       }
     } catch {
-      showToast('Could not fetch model list');
+      showToast('Could not fetch model list from CLI');
     } finally {
       setLoadingModels(false);
     }
@@ -654,21 +681,15 @@ const CopilotSettings: React.FC<CopilotSettingsProps> = ({
 
         <div style={{ display: 'flex', gap: spacing.md, alignItems: 'flex-end' }}>
           <div style={{ flex: 1 }}>
-            {models.length > 0 ? (
-              <Select
-                label="Model"
-                options={models.map((m) => ({ value: m, label: m }))}
-                value={copilotModel}
-                onChange={(e) => handleSaveModel(e.target.value)}
-              />
-            ) : (
-              <Input
-                label="Model"
-                placeholder="e.g. gpt-4o, claude-sonnet-4"
-                value={copilotModel}
-                onChange={(e) => handleSaveModel(e.target.value)}
-              />
-            )}
+            <Select
+              label="Model"
+              options={[
+                ...models.map((m) => ({ value: m, label: m })),
+                ...(models.includes(copilotModel) ? [] : [{ value: copilotModel, label: `${copilotModel} (custom)` }]),
+              ]}
+              value={copilotModel}
+              onChange={(e) => handleSaveModel(e.target.value)}
+            />
           </div>
           <Button
             variant="ghost" size="sm"
@@ -680,7 +701,7 @@ const CopilotSettings: React.FC<CopilotSettingsProps> = ({
           </Button>
         </div>
         <p style={{ fontSize: font.size.xs, color: colors.text.muted, marginTop: spacing.sm }}>
-          All models available via Copilot CLI are supported. Use "Refresh" to query available models.
+          Select a model from the list or use "Refresh" to fetch available models from the Copilot CLI.
         </p>
       </Card>
 

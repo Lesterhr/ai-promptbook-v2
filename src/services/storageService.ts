@@ -184,7 +184,7 @@ export async function saveTemplate(
   const idx = templates.findIndex((t) => t.id === template.id);
   const meta: TemplateMetadata = { ...template, updatedAt: now() };
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { content: _content, ...metaOnly } = { ...meta } as Template;
+  const { content: _content, ...metaOnly } = { ...meta, charCount: template.content.length } as Template;
   if (idx >= 0) {
     templates[idx] = metaOnly;
   } else {

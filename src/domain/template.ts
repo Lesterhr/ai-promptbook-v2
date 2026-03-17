@@ -47,6 +47,8 @@ export interface TemplateMetadata {
   filename: string;
   /** User-assigned quality rating 1–10. null/undefined means unrated. */
   rating?: number | null;
+  /** Character count of the template content (for token estimation without loading content) */
+  charCount?: number;
 }
 
 export interface Template extends TemplateMetadata {

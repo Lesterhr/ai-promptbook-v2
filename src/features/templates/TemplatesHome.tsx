@@ -15,9 +15,10 @@ import {
   MoreVertical,
 } from 'lucide-react';
 import { colors, spacing, font, radius, transition } from '../../ui/theme';
-import { Button, Card, Badge, Input, SectionHeader, EmptyState, Select, ConfirmDialog, RatingControl } from '../../ui/components';
+import { Button, Card, Badge, Input, SectionHeader, EmptyState, Select, ConfirmDialog, RatingControl, TokenBar } from '../../ui/components';
 import { useAppStore } from '../../state/appStore';
 import type { TemplateMetadata } from '../../domain';
+import { estimateTokensFromCharCount } from '../../domain';
 import * as storage from '../../services/storageService';
 import * as syncSvc from '../../services/syncService';
 import { TemplateEditor } from './TemplateEditor';
@@ -240,6 +241,7 @@ export const TemplatesHome: React.FC = () => {
     return (
       <TemplatePreview
         template={activeTemplate}
+        collectionPath={activeCollection?.path ?? ''}
         onEdit={() => setViewMode('editor')}
         onBack={() => {
           setViewMode('list');
@@ -724,6 +726,11 @@ const TemplateRow: React.FC<{
           <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center' }}>
             <RatingControl size="sm" value={tpl.rating} onChange={(r) => onRate(tpl.id, r)} />
           </div>
+          {tpl.charCount != null && (
+            <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center' }}>
+              <TokenBar tokens={estimateTokensFromCharCount(tpl.charCount)} size="sm" />
+            </div>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();

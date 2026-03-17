@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Save, X, Tag, Download, Copy, Clock, RotateCcw } from 'lucide-react';
+import { Save, X, Tag, Download, Copy, Clock, RotateCcw, FolderOpen } from 'lucide-react';
 import { save as saveDialog } from '@tauri-apps/plugin-dialog';
+import { revealItemInDir } from '@tauri-apps/plugin-opener';
+import { join } from '@tauri-apps/api/path';
 import { colors, spacing, font, radius, transition } from '../../ui/theme';
 import { Button, Input, Select, Badge, ConfirmDialog, RatingControl } from '../../ui/components';
 import type { Template, TemplateCategory } from '../../domain';
@@ -106,6 +108,15 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
     }
   };
 
+  const handleRevealInExplorer = async () => {
+    try {
+      const fullPath = await join(collectionPath, template.filename);
+      await revealItemInDir(fullPath);
+    } catch (err) {
+      showToast(`Could not open explorer: ${err}`);
+    }
+  };
+
   const handleExport = async () => {
     try {
       const filePath = await saveDialog({
@@ -191,6 +202,9 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
               History ({history.length})
             </Button>
           )}
+          <Button variant="ghost" onClick={handleRevealInExplorer} icon={<FolderOpen size={16} />}>
+            Show in Explorer
+          </Button>
           <Button variant="ghost" onClick={() => { setCopyName(`${name} (Copy)`); setShowCopyDialog(true); }} icon={<Copy size={16} />}>
             Save as Copy
           </Button>

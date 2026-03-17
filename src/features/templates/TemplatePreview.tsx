@@ -1,23 +1,37 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ArrowLeft, Pencil, Clock, Hash, Tag, Download } from 'lucide-react';
+import { ArrowLeft, Pencil, Clock, Hash, Tag, Download, FolderOpen } from 'lucide-react';
 import { save as saveDialog } from '@tauri-apps/plugin-dialog';
+import { revealItemInDir } from '@tauri-apps/plugin-opener';
+import { join } from '@tauri-apps/api/path';
 import { colors, spacing, font, radius } from '../../ui/theme';
-import { Button, Badge, RatingControl } from '../../ui/components';
+import { Button, Badge, RatingControl, TokenBar } from '../../ui/components';
 import type { Template } from '../../domain';
+import { estimateTokens } from '../../domain';
 import * as storage from '../../services/storageService';
 import { useAppStore } from '../../state/appStore';
 
 interface TemplatePreviewProps {
   template: Template;
+  collectionPath: string;
   onEdit: () => void;
   onBack: () => void;
   onRate: (rating: number | null) => void;
 }
 
-export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onEdit, onBack, onRate }) => {
+export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, collectionPath, onEdit, onBack, onRate }) => {
   const { showToast } = useAppStore();
+  const tokens = estimateTokens(template.content);
+
+  const handleRevealInExplorer = async () => {
+    try {
+      const fullPath = await join(collectionPath, template.filename);
+      await revealItemInDir(fullPath);
+    } catch (err) {
+      showToast(`Could not open explorer: ${err}`);
+    }
+  };
 
   const handleExport = async () => {
     try {
@@ -53,6 +67,9 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onEd
           Back
         </Button>
         <div style={{ display: 'flex', gap: spacing.sm }}>
+          <Button variant="ghost" onClick={handleRevealInExplorer} icon={<FolderOpen size={16} />}>
+            Show in Explorer
+          </Button>
           <Button variant="secondary" onClick={handleExport} icon={<Download size={16} />}>
             Export
           </Button>
@@ -148,6 +165,19 @@ export const TemplatePreview: React.FC<TemplatePreviewProps> = ({ template, onEd
       >
         <span style={{ fontSize: font.size.sm, color: colors.text.muted }}>Rating</span>
         <RatingControl size="md" value={template.rating} onChange={onRate} />
+      </div>
+
+      {/* Token usage */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: spacing.md,
+          marginBottom: spacing.lg,
+        }}
+      >
+        <span style={{ fontSize: font.size.sm, color: colors.text.muted }}>Tokens</span>
+        <TokenBar tokens={tokens} size="md" />
       </div>
 
       {template.description && (

@@ -476,3 +476,67 @@ export const RatingControl: React.FC<RatingControlProps> = ({
     </div>
   );
 };
+
+/* ───── TokenBar ───── */
+
+function tokenBarColor(ratio: number): string {
+  if (ratio <= 0.25) return colors.accent.green;
+  if (ratio <= 0.60) return colors.accent.blue;
+  if (ratio <= 0.85) return colors.accent.amber;
+  return colors.accent.red;
+}
+
+export interface TokenBarProps {
+  /** Estimated token count */
+  tokens: number;
+  /** Maximum tokens for 100 % fill (default: 200 000) */
+  maxTokens?: number;
+  /** 'sm' = compact inline (list rows), 'md' = full width (preview/editor) */
+  size?: 'sm' | 'md';
+}
+
+export const TokenBar: React.FC<TokenBarProps> = ({
+  tokens,
+  maxTokens = 200_000,
+  size = 'md',
+}) => {
+  const ratio = Math.min(tokens / maxTokens, 1);
+  const percent = Math.round(ratio * 100);
+  const isSm = size === 'sm';
+  const barW = isSm ? 56 : '100%';
+  const barH = isSm ? 4 : 8;
+  const color = tokenBarColor(ratio);
+
+  return (
+    <div
+      title={`~${tokens.toLocaleString()} tokens (${percent}% of ${(maxTokens / 1000).toLocaleString()}k context)`}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: isSm ? spacing.xs : spacing.sm,
+        width: isSm ? 'auto' : '100%',
+      }}
+    >
+      <div
+        style={{
+          width: barW,
+          height: barH,
+          borderRadius: radius.full,
+          background: colors.bg.tertiary,
+          overflow: 'hidden',
+          flexShrink: 0,
+        }}
+      >
+        <div
+          style={{
+            width: `${percent}%`,
+            height: '100%',
+            borderRadius: radius.full,
+            background: color,
+            transition: `width ${transition.normal}`,
+          }}
+        />
+      </div>
+    </div>
+  );
+};

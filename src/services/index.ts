@@ -6,3 +6,4 @@ export * as githubService from './githubService';
 export * as templateHubService from './templateHubService';
 export * as migrationService from './migrationService';
 export * as cryptoService from './cryptoService';
+export * as copilotService from './copilotService';

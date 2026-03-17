@@ -29,13 +29,15 @@
     {
       "identifier": "shell:allow-execute",
       "allow": [
-        { "name": "git", "cmd": "git", "args": true }
+        { "name": "git", "cmd": "git", "args": true },
+        { "name": "copilot", "cmd": "copilot", "args": true }
       ]
     },
     {
       "identifier": "shell:allow-spawn",
       "allow": [
-        { "name": "git", "cmd": "git", "args": true }
+        { "name": "git", "cmd": "git", "args": true },
+        { "name": "copilot", "cmd": "copilot", "args": true }
       ]
     }
   ]

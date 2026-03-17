@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Plus, FileText, X, Sparkles } from 'lucide-react';
+import { Plus, FileText, X, Sparkles, Loader } from 'lucide-react';
 import { colors, spacing, font, radius, transition, shadow } from '../../ui/theme';
-import { Button, Input, Select } from '../../ui/components';
+import { Button, Input, Select, TextArea } from '../../ui/components';
 import { disciplines, type Discipline } from '../../data/guidelineContent';
 import { useAppStore } from '../../state/appStore';
 import * as storage from '../../services/storageService';
+import { generateContent } from '../../services/copilotService';
+import { decryptToken } from '../../services/cryptoService';
 import type { TemplateCategory } from '../../domain';
 
 interface TemplateCreateDialogProps {
@@ -19,12 +21,17 @@ export const TemplateCreateDialog: React.FC<TemplateCreateDialogProps> = ({
   onCreated,
   onClose,
 }) => {
-  const { collections, activeCollectionId } = useAppStore();
+  const { collections, activeCollectionId, copilotEnabled, copilotModel, copilotByok, copilotCliPath, githubToken, showToast } = useAppStore();
 
   const [selectedDiscipline, setSelectedDiscipline] = useState<Discipline | null>(
     preselectedDisciplineId ? disciplines.find((d) => d.id === preselectedDisciplineId) ?? null : null,
   );
   const [isBlank, setIsBlank] = useState(false);
+  const [isAiMode, setIsAiMode] = useState(false);
+  const [aiDiscipline, setAiDiscipline] = useState<Discipline | null>(null);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiGeneratedContent, setAiGeneratedContent] = useState('');
+  const [generating, setGenerating] = useState(false);
   const [filename, setFilename] = useState(
     preselectedDisciplineId
       ? (disciplines.find((d) => d.id === preselectedDisciplineId)?.defaultFilename ?? '')
@@ -35,7 +42,7 @@ export const TemplateCreateDialog: React.FC<TemplateCreateDialogProps> = ({
   const [creating, setCreating] = useState(false);
 
   const selectedCollection = collections.find((c) => c.id === collectionId) ?? null;
-  const showConfig = selectedDiscipline !== null || isBlank;
+  const showConfig = selectedDiscipline !== null || isBlank || (isAiMode && aiGeneratedContent);
 
   const handleSelectDiscipline = (d: Discipline) => {
     setSelectedDiscipline(d);
@@ -58,6 +65,10 @@ export const TemplateCreateDialog: React.FC<TemplateCreateDialogProps> = ({
     }
     setSelectedDiscipline(null);
     setIsBlank(false);
+    setIsAiMode(false);
+    setAiDiscipline(null);
+    setAiPrompt('');
+    setAiGeneratedContent('');
     setFilename('');
     setTemplateName('');
   };
@@ -70,7 +81,9 @@ export const TemplateCreateDialog: React.FC<TemplateCreateDialogProps> = ({
       const category: TemplateCategory = selectedDiscipline?.category ?? 'other';
       const content = isBlank
         ? `# ${name}\n\nAdd your content here.\n`
-        : (selectedDiscipline?.scaffoldContent ?? '');
+        : aiGeneratedContent
+          ? aiGeneratedContent
+          : (selectedDiscipline?.scaffoldContent ?? '');
       const finalFilename = filename.trim().endsWith('.md') || filename.trim().startsWith('.')
         ? filename.trim()
         : `${filename.trim()}.md`;
@@ -87,6 +100,61 @@ export const TemplateCreateDialog: React.FC<TemplateCreateDialogProps> = ({
       console.error('Create failed:', err);
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleStartAiMode = () => {
+    setIsAiMode(true);
+    setIsBlank(false);
+    setSelectedDiscipline(null);
+  };
+
+  const handleSelectAiDiscipline = (d: Discipline) => {
+    setAiDiscipline(d);
+    setFilename(d.defaultFilename);
+    setTemplateName(d.title);
+  };
+
+  const handleGenerate = async () => {
+    if (!aiDiscipline || !aiPrompt.trim()) return;
+    setGenerating(true);
+    try {
+      const guide = aiDiscipline.guide;
+      const systemMessage = `You are an expert at writing AI agent instruction files.
+Your task is to generate a complete, production-ready ${aiDiscipline.title} file.
+
+Use this scaffold as structural reference (fill in the placeholders based on the user's project description):
+${aiDiscipline.scaffoldContent}
+
+Quality criteria to follow:
+- ${guide.bestPractices.join('\n- ')}
+
+Key structural requirements:
+${guide.structureDescription}
+
+Key points to cover:
+- ${guide.keyPoints.join('\n- ')}
+
+Return ONLY the complete file content, no explanations or code fences.`;
+
+      const config = { enabled: true, cliPath: copilotCliPath, model: copilotModel, byok: copilotByok };
+      let decryptedByokKey: string | null = null;
+      if (copilotByok?.apiKeyEncrypted) {
+        decryptedByokKey = await decryptToken(copilotByok.apiKeyEncrypted);
+      }
+
+      const result = await generateContent(
+        { systemMessage, prompt: aiPrompt },
+        config,
+        githubToken,
+        decryptedByokKey,
+      );
+      setAiGeneratedContent(result.content);
+      showToast('Template generated successfully');
+    } catch (err) {
+      showToast(`Generation failed: ${err}`);
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -110,7 +178,7 @@ export const TemplateCreateDialog: React.FC<TemplateCreateDialogProps> = ({
           border: `1px solid ${colors.border.subtle}`,
           borderRadius: radius.xl,
           boxShadow: shadow.lg,
-          width: showConfig ? 520 : 720,
+          width: showConfig ? 520 : isAiMode ? 600 : 720,
           maxHeight: '85vh',
           overflow: 'auto',
           transition: `width ${transition.normal}`,
@@ -127,7 +195,7 @@ export const TemplateCreateDialog: React.FC<TemplateCreateDialogProps> = ({
           }}
         >
           <h3 style={{ fontSize: font.size.xl, fontWeight: font.weight.bold, color: colors.text.primary, margin: 0 }}>
-            {showConfig ? (isBlank ? 'New Blank Template' : `Create ${selectedDiscipline?.title}`) : 'New Template'}
+            {showConfig ? (isBlank ? 'New Blank Template' : isAiMode ? 'Generate with AI' : `Create ${selectedDiscipline?.title}`) : isAiMode ? 'Generate with AI' : 'New Template'}
           </h3>
           <button onClick={onClose} aria-label="Close" style={{ color: colors.text.muted, padding: spacing.xs, display: 'flex' }}>
             <X size={20} />
@@ -136,7 +204,7 @@ export const TemplateCreateDialog: React.FC<TemplateCreateDialogProps> = ({
 
         <div style={{ padding: spacing.xl }}>
           {/* ── Step: Discipline Picker ── */}
-          {!showConfig && (
+          {!showConfig && !isAiMode && (
             <>
               <p style={{ fontSize: font.size.md, color: colors.text.secondary, marginBottom: spacing.lg }}>
                 Choose a template type to start with a recommended structure, or create a blank template.
@@ -151,7 +219,7 @@ export const TemplateCreateDialog: React.FC<TemplateCreateDialogProps> = ({
                   alignItems: 'center',
                   gap: spacing.md,
                   padding: spacing.lg,
-                  marginBottom: spacing.md,
+                  marginBottom: spacing.sm,
                   background: colors.bg.tertiary,
                   border: `1px dashed ${colors.border.default}`,
                   borderRadius: radius.md,
@@ -175,6 +243,46 @@ export const TemplateCreateDialog: React.FC<TemplateCreateDialogProps> = ({
                   </div>
                   <div style={{ fontSize: font.size.sm, color: colors.text.muted }}>
                     Start from scratch with an empty document
+                  </div>
+                </div>
+              </button>
+
+              {/* Generate with AI option */}
+              <button
+                onClick={handleStartAiMode}
+                disabled={!copilotEnabled}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: spacing.md,
+                  padding: spacing.lg,
+                  marginBottom: spacing.md,
+                  background: copilotEnabled ? `${colors.accent.purple}0a` : colors.bg.tertiary,
+                  border: `1px dashed ${copilotEnabled ? colors.accent.purple + '55' : colors.border.default}`,
+                  borderRadius: radius.md,
+                  textAlign: 'left',
+                  transition: `all ${transition.fast}`,
+                  cursor: copilotEnabled ? 'pointer' : 'not-allowed',
+                  opacity: copilotEnabled ? 1 : 0.5,
+                }}
+                onMouseEnter={(e) => { if (copilotEnabled) e.currentTarget.style.borderColor = colors.accent.purple; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = copilotEnabled ? colors.accent.purple + '55' : colors.border.default; }}
+                title={copilotEnabled ? 'Generate a template using AI' : 'Enable Copilot in Settings → AI / Copilot'}
+              >
+                <div style={{
+                  width: 40, height: 40, borderRadius: radius.md, display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                  background: `${colors.accent.purple}22`, color: colors.accent.purple,
+                }}>
+                  <Sparkles size={20} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: font.weight.medium, color: copilotEnabled ? colors.text.primary : colors.text.muted, fontSize: font.size.md }}>
+                    Generate with AI
+                  </div>
+                  <div style={{ fontSize: font.size.sm, color: colors.text.muted }}>
+                    {copilotEnabled ? 'Describe your project and let AI create the template' : 'Enable Copilot in Settings to unlock'}
                   </div>
                 </div>
               </button>
@@ -239,6 +347,76 @@ export const TemplateCreateDialog: React.FC<TemplateCreateDialogProps> = ({
             </>
           )}
 
+          {/* ── Step: AI Prompt ── */}
+          {isAiMode && !showConfig && (
+            <>
+              <button
+                onClick={handleBack}
+                style={{
+                  fontSize: font.size.sm, color: colors.accent.blue,
+                  marginBottom: spacing.lg, padding: 0,
+                  background: 'none', border: 'none', cursor: 'pointer',
+                }}
+              >
+                ← Back to template types
+              </button>
+
+              {/* Format selection for AI */}
+              <div style={{ marginBottom: spacing.xl }}>
+                <label style={{ fontSize: font.size.sm, color: colors.text.secondary, fontWeight: font.weight.medium, display: 'block', marginBottom: spacing.sm }}>
+                  Target Format
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.sm }}>
+                  {disciplines.map((d) => (
+                    <button
+                      key={d.id}
+                      onClick={() => handleSelectAiDiscipline(d)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: spacing.sm,
+                        padding: `${spacing.sm} ${spacing.md}`,
+                        background: aiDiscipline?.id === d.id ? `${d.color}15` : colors.bg.tertiary,
+                        border: `1px solid ${aiDiscipline?.id === d.id ? d.color : colors.border.subtle}`,
+                        borderRadius: radius.md, textAlign: 'left', cursor: 'pointer',
+                        transition: `all ${transition.fast}`,
+                      }}
+                    >
+                      <div style={{ width: 24, height: 24, borderRadius: radius.sm, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${d.color}22`, color: d.color, flexShrink: 0 }}>
+                        <FileText size={12} />
+                      </div>
+                      <span style={{ fontSize: font.size.sm, color: aiDiscipline?.id === d.id ? colors.text.primary : colors.text.secondary, fontWeight: aiDiscipline?.id === d.id ? font.weight.medium : font.weight.normal }}>
+                        {d.title}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Project description prompt */}
+              <TextArea
+                label="Describe your project"
+                placeholder="e.g. A React 19 + Tauri v2 desktop app for managing AI prompts. Uses TypeScript strict mode, Zustand for state management, inline CSS styles with theme tokens. The app has features for template creation, editing, importing, and GitHub sync."
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                style={{ minHeight: 140 }}
+              />
+
+              <div style={{
+                display: 'flex', justifyContent: 'flex-end', gap: spacing.md,
+                marginTop: spacing.xl, paddingTop: spacing.lg,
+                borderTop: `1px solid ${colors.border.subtle}`,
+              }}>
+                <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                <Button
+                  onClick={handleGenerate}
+                  disabled={!aiDiscipline || !aiPrompt.trim() || generating}
+                  icon={generating ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Sparkles size={16} />}
+                >
+                  {generating ? 'Generating…' : 'Generate Template'}
+                </Button>
+              </div>
+            </>
+          )}
+
           {/* ── Step: Configure ── */}
           {showConfig && (
             <>
@@ -255,7 +433,34 @@ export const TemplateCreateDialog: React.FC<TemplateCreateDialogProps> = ({
                 </button>
               )}
 
-              {selectedDiscipline && (
+              {/* AI generated content preview */}
+              {isAiMode && aiGeneratedContent && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: spacing.md,
+                  padding: spacing.lg, marginBottom: spacing.xl,
+                  background: `${colors.accent.purple}0a`,
+                  border: `1px solid ${colors.accent.purple}33`,
+                  borderRadius: radius.md,
+                }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: radius.md,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: `${colors.accent.purple}22`, color: colors.accent.purple,
+                  }}>
+                    <Sparkles size={18} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: font.weight.semibold, color: colors.text.primary }}>
+                      AI-Generated {aiDiscipline?.title ?? 'Template'}
+                    </div>
+                    <div style={{ fontSize: font.size.sm, color: colors.text.muted }}>
+                      {aiGeneratedContent.length} characters · Review in editor after creation
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedDiscipline && !isAiMode && (
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: spacing.md,
                   padding: spacing.lg, marginBottom: spacing.xl,

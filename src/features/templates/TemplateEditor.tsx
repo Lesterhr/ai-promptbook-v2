@@ -1,14 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Save, X, Tag, Download, Copy, Clock, RotateCcw, FolderOpen } from 'lucide-react';
+import { Save, X, Tag, Download, Copy, Clock, RotateCcw, FolderOpen, Sparkles, RefreshCw, BarChart3, Loader } from 'lucide-react';
 import { save as saveDialog } from '@tauri-apps/plugin-dialog';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { join } from '@tauri-apps/api/path';
 import { colors, spacing, font, radius, transition } from '../../ui/theme';
-import { Button, Input, Select, Badge, ConfirmDialog, RatingControl } from '../../ui/components';
+import { Button, Input, Select, Badge, ConfirmDialog, RatingControl, TextArea } from '../../ui/components';
 import type { Template, TemplateCategory } from '../../domain';
 import { now, suggestNextVersions } from '../../domain';
+import type { QualityScore } from '../../domain';
 import * as storage from '../../services/storageService';
 import type { ArchivedVersion } from '../../services/storageService';
+import { generateContent, scoreTemplate } from '../../services/copilotService';
+import { decryptToken } from '../../services/cryptoService';
+import { disciplines } from '../../data/guidelineContent';
 import { useAppStore } from '../../state/appStore';
 
 interface TemplateEditorProps {
@@ -33,7 +37,7 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
   onSave,
   onCancel,
 }) => {
-  const { showToast } = useAppStore();
+  const { showToast, copilotEnabled, copilotModel, copilotByok, copilotCliPath, githubToken } = useAppStore();
   const [name, setName] = useState(template.name);
   const [description, setDescription] = useState(template.description);
   const [category, setCategory] = useState<TemplateCategory>(template.category);
@@ -53,6 +57,21 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
   // Save as copy
   const [showCopyDialog, setShowCopyDialog] = useState(false);
   const [copyName, setCopyName] = useState('');
+
+  // AI dialogs
+  const [showImproveDialog, setShowImproveDialog] = useState(false);
+  const [improvePrompt, setImprovePrompt] = useState('');
+  const [improvedContent, setImprovedContent] = useState('');
+  const [improving, setImproving] = useState(false);
+
+  const [showConvertDialog, setShowConvertDialog] = useState(false);
+  const [convertTargetId, setConvertTargetId] = useState('');
+  const [convertedContent, setConvertedContent] = useState('');
+  const [converting, setConverting] = useState(false);
+
+  const [showScoreDialog, setShowScoreDialog] = useState(false);
+  const [qualityScore, setQualityScore] = useState<QualityScore | null>(null);
+  const [scoring, setScoring] = useState(false);
 
   const loadHistory = useCallback(async () => {
     try {
@@ -172,6 +191,150 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
     setShowHistory(false);
   };
 
+  /** Find the discipline matching the current template's category/filename */
+  const currentDiscipline = disciplines.find((d) =>
+    d.defaultFilename === template.filename || d.category === template.category,
+  ) ?? disciplines[0];
+
+  /** Build copilot config object */
+  const copilotConfig = { enabled: true, cliPath: copilotCliPath, model: copilotModel, byok: copilotByok };
+
+  /** Decrypt BYOK key if needed */
+  const getByokKey = async (): Promise<string | null> => {
+    if (copilotByok?.apiKeyEncrypted) return decryptToken(copilotByok.apiKeyEncrypted);
+    return null;
+  };
+
+  /* ── AI: Improve ── */
+  const handleImprove = async () => {
+    setImproving(true);
+    try {
+      const guide = currentDiscipline.guide;
+      const systemMessage = `You are an expert at improving AI agent instruction files.
+Analyse the template below and improve it based on these quality criteria:
+
+Best Practices:
+- ${guide.bestPractices.join('\n- ')}
+
+Key Points to cover:
+- ${guide.keyPoints.join('\n- ')}
+
+Structure:
+${guide.structureDescription}
+
+${improvePrompt.trim() ? `Additional user instructions: ${improvePrompt}` : 'Apply general quality improvements: completeness, clarity, specificity, best practices, and formatting consistency.'}
+
+Return ONLY the complete improved file content, no explanations or code fences.`;
+
+      const byokKey = await getByokKey();
+      const result = await generateContent(
+        { systemMessage, prompt: content },
+        copilotConfig,
+        githubToken,
+        byokKey,
+      );
+      setImprovedContent(result.content);
+    } catch (err) {
+      showToast(`Improve failed: ${err}`);
+    } finally {
+      setImproving(false);
+    }
+  };
+
+  const handleAcceptImproved = () => {
+    setContent(improvedContent);
+    setShowImproveDialog(false);
+    setImprovedContent('');
+    setImprovePrompt('');
+    showToast('Improved content applied — save to persist');
+  };
+
+  /* ── AI: Convert Format ── */
+  const handleConvert = async () => {
+    const targetDiscipline = disciplines.find((d) => d.id === convertTargetId);
+    if (!targetDiscipline) return;
+    setConverting(true);
+    try {
+      const systemMessage = `You are an expert at converting AI agent instruction files between formats.
+
+Source format: ${currentDiscipline.title}
+Target format: ${targetDiscipline.title}
+
+Target structure reference:
+${targetDiscipline.scaffoldContent}
+
+Target format description:
+${targetDiscipline.guide.structureDescription}
+
+Target best practices:
+- ${targetDiscipline.guide.bestPractices.join('\n- ')}
+
+Convert the source template to the target format. Preserve ALL content semantics and information. Adapt the structure, syntax, and conventions to match the target format.
+
+Return ONLY the complete converted file content, no explanations or code fences.`;
+
+      const byokKey = await getByokKey();
+      const result = await generateContent(
+        { systemMessage, prompt: content },
+        copilotConfig,
+        githubToken,
+        byokKey,
+      );
+      setConvertedContent(result.content);
+    } catch (err) {
+      showToast(`Conversion failed: ${err}`);
+    } finally {
+      setConverting(false);
+    }
+  };
+
+  const handleAcceptConverted = async () => {
+    const targetDiscipline = disciplines.find((d) => d.id === convertTargetId);
+    if (!targetDiscipline) return;
+    try {
+      const tpl = await storage.createTemplate(
+        collectionPath,
+        `${template.name} (${targetDiscipline.title})`,
+        targetDiscipline.category,
+        convertedContent,
+        targetDiscipline.defaultFilename,
+      );
+      showToast(`Converted template created: ${tpl.name}`);
+      setShowConvertDialog(false);
+      setConvertedContent('');
+      setConvertTargetId('');
+      onSave();
+    } catch (err) {
+      showToast(`Save converted template failed: ${err}`);
+    }
+  };
+
+  /* ── AI: Quality Score ── */
+  const handleScore = async () => {
+    setScoring(true);
+    try {
+      const guide = currentDiscipline.guide;
+      const referenceGuide = `Format: ${currentDiscipline.title}\n\nBest Practices:\n- ${guide.bestPractices.join('\n- ')}\n\nKey Points:\n- ${guide.keyPoints.join('\n- ')}\n\nStructure:\n${guide.structureDescription}`;
+
+      const byokKey = await getByokKey();
+      const result = await scoreTemplate(content, referenceGuide, copilotConfig, githubToken, byokKey);
+      setQualityScore(result);
+    } catch (err) {
+      showToast(`Scoring failed: ${err}`);
+    } finally {
+      setScoring(false);
+    }
+  };
+
+  const handleApplyScore = () => {
+    if (qualityScore) {
+      setRating(qualityScore.overall);
+      showToast(`Rating set to ${qualityScore.overall}/10 — save to persist`);
+    }
+    setShowScoreDialog(false);
+    setQualityScore(null);
+  };
+
   const formatDate = (iso: string) => {
     const d = new Date(iso);
     return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
@@ -207,6 +370,34 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
           </Button>
           <Button variant="ghost" onClick={() => { setCopyName(`${name} (Copy)`); setShowCopyDialog(true); }} icon={<Copy size={16} />}>
             Save as Copy
+          </Button>
+          {/* AI buttons */}
+          <Button
+            variant="ghost"
+            onClick={() => setShowImproveDialog(true)}
+            disabled={!copilotEnabled}
+            icon={<Sparkles size={16} />}
+            title={copilotEnabled ? 'Improve with AI' : 'Enable Copilot in Settings → AI / Copilot'}
+          >
+            Improve
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => setShowConvertDialog(true)}
+            disabled={!copilotEnabled}
+            icon={<RefreshCw size={16} />}
+            title={copilotEnabled ? 'Convert to another format' : 'Enable Copilot in Settings → AI / Copilot'}
+          >
+            Convert
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => { setShowScoreDialog(true); handleScore(); }}
+            disabled={!copilotEnabled}
+            icon={<BarChart3 size={16} />}
+            title={copilotEnabled ? 'AI quality analysis' : 'Enable Copilot in Settings → AI / Copilot'}
+          >
+            Score
           </Button>
           <Button variant="ghost" onClick={onCancel} icon={<X size={16} />}>
             Cancel
@@ -433,6 +624,248 @@ export const TemplateEditor: React.FC<TemplateEditorProps> = ({
                 {saving ? 'Duplicating…' : 'Duplicate'}
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── AI: Improve Dialog ── */}
+      {showImproveDialog && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={() => { if (!improving) setShowImproveDialog(false); }}
+        >
+          <div
+            style={{ background: colors.bg.surface, border: `1px solid ${colors.border.default}`, borderRadius: radius.lg, padding: spacing.xl, maxWidth: 640, width: '90%', maxHeight: '80vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ fontSize: font.size.xl, fontWeight: font.weight.bold, color: colors.text.primary, margin: 0, marginBottom: spacing.md, display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+              <Sparkles size={20} color={colors.accent.purple} />
+              Improve with AI
+            </h3>
+
+            {!improvedContent && (
+              <>
+                <p style={{ fontSize: font.size.md, color: colors.text.secondary, marginBottom: spacing.lg }}>
+                  AI will analyse your template against best practices for <strong>{currentDiscipline.title}</strong> and generate an improved version.
+                </p>
+                <TextArea
+                  label="Improvement focus (optional)"
+                  placeholder="e.g. Make the persona section more specific, add missing error handling rules, improve code examples..."
+                  value={improvePrompt}
+                  onChange={(e) => setImprovePrompt(e.target.value)}
+                  style={{ minHeight: 80 }}
+                />
+                <div style={{ display: 'flex', gap: spacing.md, justifyContent: 'flex-end', marginTop: spacing.xl }}>
+                  <Button variant="secondary" onClick={() => setShowImproveDialog(false)} disabled={improving}>Cancel</Button>
+                  <Button
+                    onClick={handleImprove}
+                    disabled={improving}
+                    icon={improving ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Sparkles size={16} />}
+                  >
+                    {improving ? 'Improving…' : 'Improve'}
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {improvedContent && (
+              <>
+                <div style={{ fontSize: font.size.sm, color: colors.text.muted, marginBottom: spacing.sm }}>
+                  Preview of improved content ({improvedContent.length} characters):
+                </div>
+                <textarea
+                  readOnly
+                  value={improvedContent}
+                  style={{
+                    width: '100%', minHeight: 300, padding: spacing.md,
+                    background: colors.bg.tertiary, border: `1px solid ${colors.border.default}`,
+                    borderRadius: radius.md, color: colors.text.primary,
+                    fontSize: font.size.sm, fontFamily: font.mono, lineHeight: 1.5, resize: 'vertical',
+                  }}
+                />
+                <div style={{ display: 'flex', gap: spacing.md, justifyContent: 'flex-end', marginTop: spacing.xl }}>
+                  <Button variant="secondary" onClick={() => { setImprovedContent(''); }}>
+                    Regenerate
+                  </Button>
+                  <Button variant="ghost" onClick={() => { setShowImproveDialog(false); setImprovedContent(''); setImprovePrompt(''); }}>
+                    Reject
+                  </Button>
+                  <Button onClick={handleAcceptImproved} icon={<Sparkles size={16} />}>
+                    Accept Changes
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── AI: Convert Dialog ── */}
+      {showConvertDialog && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={() => { if (!converting) setShowConvertDialog(false); }}
+        >
+          <div
+            style={{ background: colors.bg.surface, border: `1px solid ${colors.border.default}`, borderRadius: radius.lg, padding: spacing.xl, maxWidth: 640, width: '90%', maxHeight: '80vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ fontSize: font.size.xl, fontWeight: font.weight.bold, color: colors.text.primary, margin: 0, marginBottom: spacing.md, display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+              <RefreshCw size={20} color={colors.accent.blue} />
+              Convert Format
+            </h3>
+
+            {!convertedContent && (
+              <>
+                <p style={{ fontSize: font.size.md, color: colors.text.secondary, marginBottom: spacing.lg }}>
+                  Convert this <strong>{currentDiscipline.title}</strong> template to another agent instruction format. A new template will be created — the original remains unchanged.
+                </p>
+                <Select
+                  label="Target Format"
+                  options={disciplines.filter((d) => d.id !== currentDiscipline.id).map((d) => ({ value: d.id, label: d.title }))}
+                  value={convertTargetId}
+                  onChange={(e) => setConvertTargetId(e.target.value)}
+                />
+                <div style={{ display: 'flex', gap: spacing.md, justifyContent: 'flex-end', marginTop: spacing.xl }}>
+                  <Button variant="secondary" onClick={() => setShowConvertDialog(false)} disabled={converting}>Cancel</Button>
+                  <Button
+                    onClick={handleConvert}
+                    disabled={!convertTargetId || converting}
+                    icon={converting ? <Loader size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <RefreshCw size={16} />}
+                  >
+                    {converting ? 'Converting…' : 'Convert'}
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {convertedContent && (
+              <>
+                <div style={{ fontSize: font.size.sm, color: colors.text.muted, marginBottom: spacing.sm }}>
+                  Converted to {disciplines.find((d) => d.id === convertTargetId)?.title ?? 'target format'} ({convertedContent.length} characters):
+                </div>
+                <textarea
+                  readOnly
+                  value={convertedContent}
+                  style={{
+                    width: '100%', minHeight: 300, padding: spacing.md,
+                    background: colors.bg.tertiary, border: `1px solid ${colors.border.default}`,
+                    borderRadius: radius.md, color: colors.text.primary,
+                    fontSize: font.size.sm, fontFamily: font.mono, lineHeight: 1.5, resize: 'vertical',
+                  }}
+                />
+                <div style={{ display: 'flex', gap: spacing.md, justifyContent: 'flex-end', marginTop: spacing.xl }}>
+                  <Button variant="ghost" onClick={() => { setShowConvertDialog(false); setConvertedContent(''); setConvertTargetId(''); }}>
+                    Discard
+                  </Button>
+                  <Button onClick={handleAcceptConverted} icon={<RefreshCw size={16} />}>
+                    Save as New Template
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── AI: Quality Score Dialog ── */}
+      {showScoreDialog && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={() => { if (!scoring) { setShowScoreDialog(false); setQualityScore(null); } }}
+        >
+          <div
+            style={{ background: colors.bg.surface, border: `1px solid ${colors.border.default}`, borderRadius: radius.lg, padding: spacing.xl, maxWidth: 560, width: '90%', maxHeight: '80vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ fontSize: font.size.xl, fontWeight: font.weight.bold, color: colors.text.primary, margin: 0, marginBottom: spacing.lg, display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+              <BarChart3 size={20} color={colors.accent.green} />
+              AI Quality Analysis
+            </h3>
+
+            {scoring && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: spacing.lg, padding: spacing.xl }}>
+                <Loader size={32} color={colors.accent.blue} style={{ animation: 'spin 1s linear infinite' }} />
+                <p style={{ fontSize: font.size.md, color: colors.text.secondary }}>Analysing template quality…</p>
+              </div>
+            )}
+
+            {!scoring && qualityScore && (
+              <>
+                {/* Overall score */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: spacing.lg,
+                  padding: spacing.xl, marginBottom: spacing.xl,
+                  background: colors.bg.tertiary, borderRadius: radius.lg,
+                }}>
+                  <div style={{
+                    width: 72, height: 72, borderRadius: radius.full,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: `${qualityScore.overall >= 7 ? colors.accent.green : qualityScore.overall >= 4 ? colors.accent.amber : colors.accent.red}22`,
+                    border: `3px solid ${qualityScore.overall >= 7 ? colors.accent.green : qualityScore.overall >= 4 ? colors.accent.amber : colors.accent.red}`,
+                  }}>
+                    <span style={{ fontSize: font.size['2xl'], fontWeight: font.weight.bold, color: colors.text.primary }}>
+                      {qualityScore.overall}
+                    </span>
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: font.weight.semibold, color: colors.text.primary, fontSize: font.size.lg }}>
+                      Overall Score
+                    </div>
+                    <div style={{ fontSize: font.size.sm, color: colors.text.muted }}>
+                      out of 10 · based on {currentDiscipline.title} standards
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dimension scores */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: spacing.md, marginBottom: spacing.xl }}>
+                  {([
+                    { label: 'Completeness', value: qualityScore.completeness },
+                    { label: 'Clarity', value: qualityScore.clarity },
+                    { label: 'Specificity', value: qualityScore.specificity },
+                    { label: 'Best Practices', value: qualityScore.bestPractices },
+                    { label: 'Structure', value: qualityScore.structure },
+                  ] as const).map((dim) => (
+                    <div key={dim.label} style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                      <div style={{
+                        width: 32, height: 32, borderRadius: radius.md,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: colors.bg.tertiary, fontWeight: font.weight.semibold,
+                        color: dim.value >= 7 ? colors.accent.green : dim.value >= 4 ? colors.accent.amber : colors.accent.red,
+                        fontSize: font.size.sm,
+                      }}>
+                        {dim.value}
+                      </div>
+                      <span style={{ fontSize: font.size.sm, color: colors.text.secondary }}>{dim.label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Suggestions */}
+                {qualityScore.suggestions.length > 0 && (
+                  <div style={{ marginBottom: spacing.xl }}>
+                    <div style={{ fontSize: font.size.sm, fontWeight: font.weight.semibold, color: colors.text.primary, marginBottom: spacing.sm }}>
+                      Improvement Suggestions
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: spacing.lg, display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
+                      {qualityScore.suggestions.map((s, i) => (
+                        <li key={i} style={{ fontSize: font.size.sm, color: colors.text.secondary, lineHeight: 1.5 }}>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: spacing.md, justifyContent: 'flex-end' }}>
+                  <Button variant="ghost" onClick={() => { setShowScoreDialog(false); setQualityScore(null); }}>
+                    Close
+                  </Button>
+                  <Button onClick={handleApplyScore} icon={<BarChart3 size={16} />}>
+                    Apply Rating ({qualityScore.overall}/10)
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

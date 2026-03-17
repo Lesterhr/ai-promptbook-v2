@@ -3,6 +3,8 @@ import { RouterProvider } from 'react-router-dom';
 import { router } from './routes';
 import { useAppStore } from './state/appStore';
 import { ensureAppDirs, loadConfig, listCollections, listTemplates } from './services/storageService';
+import { checkCopilotCli } from './services/copilotService';
+import { DEFAULT_COPILOT_CONFIG } from './domain';
 import { colors, spacing, font, radius, transition } from './ui/theme';
 
 /** Toast overlay shown at the bottom of the screen */
@@ -36,7 +38,9 @@ function Toast() {
 }
 
 export default function App() {
-  const { setGithubToken, setCollections, setTemplates, setActiveCollectionId } = useAppStore();
+  const { setGithubToken, setCollections, setTemplates, setActiveCollectionId,
+    setCopilotAvailable, setCopilotVersion, setCopilotEnabled, setCopilotModel, setCopilotByok, setCopilotCliPath,
+  } = useAppStore();
 
   /** Bootstrap on first load */
   useEffect(() => {
@@ -45,6 +49,19 @@ export default function App() {
         await ensureAppDirs();
         const config = await loadConfig();
         if (config.githubToken) setGithubToken(config.githubToken as string);
+
+        // Restore saved Copilot config
+        const cc = config.copilot ?? DEFAULT_COPILOT_CONFIG;
+        setCopilotEnabled(cc.enabled);
+        setCopilotModel(cc.model);
+        setCopilotByok(cc.byok);
+        setCopilotCliPath(cc.cliPath);
+
+        // Non-blocking CLI detection
+        checkCopilotCli(cc.cliPath).then((status) => {
+          setCopilotAvailable(status.available);
+          setCopilotVersion(status.version);
+        }).catch(() => {});
 
         const cols = await listCollections();
         setCollections(cols);

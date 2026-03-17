@@ -44,6 +44,8 @@ export interface AppConfig {
   /** @deprecated kept for migration – use savedTokens instead */
   githubToken?: string | null;
   savedTokens?: SavedToken[];
+  /** Optional Copilot CLI / AI configuration */
+  copilot?: import('../domain/copilot').CopilotConfig;
   [key: string]: unknown;
 }
 

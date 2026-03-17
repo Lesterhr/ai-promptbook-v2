@@ -7,7 +7,8 @@
  */
 
 import { create } from 'zustand';
-import type { Collection, Template, TemplateMetadata } from '../domain';
+import type { Collection, Template, TemplateMetadata, ByokConfig } from '../domain';
+import { DEFAULT_COPILOT_CONFIG } from '../domain';
 import type { SavedToken } from '../services/storageService';
 
 interface AppState {
@@ -31,6 +32,20 @@ interface AppState {
   activeTemplate: Template | null;
   setActiveTemplate: (tpl: Template | null) => void;
   updateTemplateMetadata: (id: string, patch: Partial<TemplateMetadata>) => void;
+
+  /* ── Copilot ── */
+  copilotAvailable: boolean;
+  setCopilotAvailable: (available: boolean) => void;
+  copilotVersion: string | null;
+  setCopilotVersion: (version: string | null) => void;
+  copilotEnabled: boolean;
+  setCopilotEnabled: (enabled: boolean) => void;
+  copilotModel: string;
+  setCopilotModel: (model: string) => void;
+  copilotByok: ByokConfig | null;
+  setCopilotByok: (byok: ByokConfig | null) => void;
+  copilotCliPath: string | null;
+  setCopilotCliPath: (path: string | null) => void;
 
   /* ── UI ── */
   sidebarCollapsed: boolean;
@@ -68,6 +83,20 @@ export const useAppStore = create<AppState>((set) => ({
           ? { ...state.activeTemplate, ...patch }
           : state.activeTemplate,
     })),
+
+  /* Copilot */
+  copilotAvailable: false,
+  setCopilotAvailable: (copilotAvailable) => set({ copilotAvailable }),
+  copilotVersion: null,
+  setCopilotVersion: (copilotVersion) => set({ copilotVersion }),
+  copilotEnabled: DEFAULT_COPILOT_CONFIG.enabled,
+  setCopilotEnabled: (copilotEnabled) => set({ copilotEnabled }),
+  copilotModel: DEFAULT_COPILOT_CONFIG.model,
+  setCopilotModel: (copilotModel) => set({ copilotModel }),
+  copilotByok: DEFAULT_COPILOT_CONFIG.byok,
+  setCopilotByok: (copilotByok) => set({ copilotByok }),
+  copilotCliPath: DEFAULT_COPILOT_CONFIG.cliPath,
+  setCopilotCliPath: (copilotCliPath) => set({ copilotCliPath }),
 
   /* UI */
   sidebarCollapsed: false,

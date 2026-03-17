@@ -2,3 +2,5 @@ export type { Template, TemplateMetadata, TemplateCategory, TemplateSource } fro
 export type { Collection, CollectionRemote } from './collection';
 export { uuid, now, inferCategory, DEFAULT_VERSION, TEMPLATE_SUFFIXES, parseSemver, suggestNextVersions } from './metadata';
 export { estimateTokens, estimateTokensFromCharCount, tokenRatio, MAX_CONTEXT_TOKENS } from './tokenEstimator';
+export type { CopilotStatus, CopilotConfig, ByokConfig, ByokProviderType, GenerateRequest, GenerateResult, QualityScore } from './copilot';
+export { DEFAULT_COPILOT_CONFIG } from './copilot';
